@@ -610,9 +610,17 @@ function Layout.layoutNode(node, px, py, pw, ph)
     -- For single-line (nowrap), the line cross size is the full cross-axis
     -- available space, so that alignItems stretch/center/end work relative
     -- to the container, not just the tallest child.
+    -- Only when the cross-axis has a definite size (not the 9999 fallback).
     if not wrap then
-      local fullCross = isRow and innerH or innerW
-      if fullCross > lineCrossSize then
+      local fullCross
+      if isRow and h then
+        -- Row: cross-axis is height; only use if h is definite (not auto)
+        fullCross = innerH
+      elseif not isRow then
+        -- Column: cross-axis is width; always definite (falls back to pw)
+        fullCross = innerW
+      end
+      if fullCross and fullCross > lineCrossSize then
         lineCrossSize = fullCross
       end
     end
@@ -707,9 +715,15 @@ function Layout.layoutNode(node, px, py, pw, ph)
         end
       end
 
-      -- Signal stretched cross-axis to child so its layoutNode uses it
-      if childAlign == "stretch" and isRow and ci.explicitH == nil then
-        child._stretchH = ch_final
+      -- Signal parent-determined height to child so its layoutNode uses it
+      -- instead of auto-sizing (which would give 0 for scroll containers, etc.)
+      -- Covers: row cross-axis stretch, column main-axis flex-grow
+      if ci.explicitH == nil then
+        if isRow and childAlign == "stretch" then
+          child._stretchH = ch_final
+        elseif not isRow and ci.grow > 0 then
+          child._stretchH = ch_final
+        end
       end
 
       child.computed = { x = cx, y = cy, w = cw_final, h = ch_final }
