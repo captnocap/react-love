@@ -1,22 +1,30 @@
 /**
- * Flatten a LayoutNode tree into an array of draw commands
- * suitable for ComputerCraft's term/paintutils API.
+ * Flatten a LayoutNode tree into an array of draw commands.
  *
- * Walks depth-first, clips children to parent bounds,
- * and quantizes colors via the CC palette.
+ * Walks depth-first, clips children to parent bounds.
+ * Color mapping is pluggable: pass a mapColor function to quantize
+ * (e.g., CC 16-color palette) or leave undefined for CSS pass-through.
  */
 
 import type { LayoutNode } from './layout';
-import { nearestCCColor, CC_DEFAULT_FG, CC_DEFAULT_BG } from './palette';
 
 export interface DrawCommand {
-  x: number;      // 1-based column
-  y: number;      // 1-based row
+  x: number;
+  y: number;
   w: number;
   h: number;
-  bg?: number;    // CC color ID
-  text?: string;  // text content (truncated to w)
-  fg?: number;    // CC color ID for text
+  bg?: any;       // Color value (CSS string or mapped value)
+  text?: string;
+  fg?: any;       // Color value (CSS string or mapped value)
+}
+
+export interface FlattenOptions {
+  /** Map a CSS color string to a target-specific value. Default: pass-through. */
+  mapColor?: (cssColor: string) => any;
+  /** Default foreground color for text. Default: '#FFFFFF'. */
+  defaultFg?: any;
+  /** Default background color. Default: undefined (transparent). */
+  defaultBg?: any;
 }
 
 interface ClipRect {
@@ -38,7 +46,7 @@ function intersect(a: ClipRect, b: ClipRect): ClipRect | null {
 /**
  * Flatten a LayoutNode tree to draw commands.
  */
-export function flatten(root: LayoutNode): DrawCommand[] {
+export function flatten(root: LayoutNode, options?: FlattenOptions): DrawCommand[] {
   const commands: DrawCommand[] = [];
   const clip: ClipRect = {
     x1: root.x,
@@ -46,7 +54,9 @@ export function flatten(root: LayoutNode): DrawCommand[] {
     x2: root.x + root.w,
     y2: root.y + root.h,
   };
-  flattenNode(root, clip, commands);
+  const mapColor = options?.mapColor ?? ((c: string) => c);
+  const defaultFg = options?.defaultFg ?? '#FFFFFF';
+  flattenNode(root, clip, commands, mapColor, defaultFg);
   return commands;
 }
 
@@ -54,6 +64,8 @@ function flattenNode(
   node: LayoutNode,
   parentClip: ClipRect,
   out: DrawCommand[],
+  mapColor: (css: string) => any,
+  defaultFg: any,
 ): void {
   const nodeRect: ClipRect = {
     x1: node.x,
@@ -76,23 +88,23 @@ function flattenNode(
       y: clipped.y1,
       w,
       h,
-      bg: nearestCCColor(bgColor),
+      bg: mapColor(bgColor),
     });
   }
 
   // Emit text
-  if (node.text && (node.type === 'Text' || node.type === '__TEXT__')) {
-    const fg = node.style.color ? nearestCCColor(node.style.color) : CC_DEFAULT_FG;
-    const bg = bgColor ? nearestCCColor(bgColor) : undefined;
+  const isText = node.type === 'Text' || node.type === 'text' || node.type === '__TEXT__';
+  if (node.text && isText) {
+    const fg = node.style.color ? mapColor(node.style.color) : defaultFg;
+    const bg = bgColor ? mapColor(bgColor) : undefined;
 
-    // Truncate text to clipped width
     const truncated = node.text.slice(0, w);
     if (truncated.length > 0) {
       out.push({
         x: clipped.x1,
         y: clipped.y1,
         w,
-        h: 1, // text occupies one row
+        h: 1,
         text: truncated,
         fg,
         bg,
@@ -100,8 +112,8 @@ function flattenNode(
     }
   }
 
-  // Recurse children with this node's clip rect
+  // Recurse children
   for (const child of node.children) {
-    flattenNode(child, clipped, out);
+    flattenNode(child, clipped, out, mapColor, defaultFg);
   }
 }

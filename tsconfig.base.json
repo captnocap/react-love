@@ -14,7 +14,11 @@
       "@ilovereact/core": ["./packages/shared/src"],
       "@ilovereact/web": ["./packages/web/src"],
       "@ilovereact/native": ["./packages/native/src"],
-      "@ilovereact/cc": ["./packages/cc/src"]
+      "@ilovereact/grid": ["./packages/grid/src"],
+      "@ilovereact/cc": ["./packages/cc/src"],
+      "@ilovereact/nvim": ["./packages/nvim/src"],
+      "@ilovereact/hs": ["./packages/hs/src"],
+      "@ilovereact/awesome": ["./packages/awesome/src"]
     }
   }
 }

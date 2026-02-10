@@ -1,8 +1,9 @@
 /**
- * Simplified character-grid flexbox layout for ComputerCraft.
+ * Simplified grid-based flexbox layout engine.
  *
  * Operates on the reconciler's Instance tree and computes
- * { x, y, w, h } in integer character coordinates.
+ * { x, y, w, h } in integer coordinates. Works for both
+ * character grids (CC, Neovim) and pixel grids (Hammerspoon, AwesomeWM).
  *
  * Supports: width, height (absolute or %), flexDirection, flexGrow,
  * padding, gap, and pass-through of style props (backgroundColor, color).
@@ -13,8 +14,8 @@ import type { Instance } from '@ilovereact/native';
 export interface LayoutNode {
   id: number;
   type: string;
-  x: number;       // 1-based column (CC uses 1-based)
-  y: number;       // 1-based row
+  x: number;
+  y: number;
   w: number;
   h: number;
   text?: string;
@@ -22,9 +23,9 @@ export interface LayoutNode {
   children: LayoutNode[];
 }
 
-interface Size {
-  w: number;
-  h: number;
+export interface LayoutOptions {
+  /** Starting coordinate (0 for pixel targets, 1 for 1-based char grids like CC). Default 0. */
+  coordBase?: number;
 }
 
 /** Resolve a dimension value (number, "50%", etc.) against a parent size. */
@@ -65,12 +66,19 @@ function getPadding(style: Record<string, any>): { t: number; r: number; b: numb
  * Compute layout for an Instance tree within a given grid.
  *
  * @param root The root Instance from the reconciler
- * @param gridW Grid width in characters (default 51 for CC)
- * @param gridH Grid height in characters (default 19 for CC)
+ * @param gridW Grid width (characters or pixels)
+ * @param gridH Grid height (characters or pixels)
+ * @param options Layout options (coordBase, etc.)
  * @returns Root LayoutNode with computed positions
  */
-export function computeLayout(root: Instance, gridW = 51, gridH = 19): LayoutNode {
-  return layoutNode(root, 1, 1, gridW, gridH);
+export function computeLayout(
+  root: Instance,
+  gridW: number,
+  gridH: number,
+  options?: LayoutOptions,
+): LayoutNode {
+  const base = options?.coordBase ?? 0;
+  return layoutNode(root, base, base, gridW, gridH);
 }
 
 function layoutNode(
@@ -96,12 +104,12 @@ function layoutNode(
 
   // Text nodes are leaf nodes
   const text = getTextContent(instance);
-  if (instance.type === 'Text' || instance.type === '__TEXT__') {
+  if (instance.type === 'Text' || instance.type === 'text' || instance.type === '__TEXT__') {
     return {
       id: instance.id,
       type: instance.type,
       x, y, w, h,
-      text: text?.slice(0, w), // truncate to fit
+      text: text?.slice(0, w),
       style,
       children: [],
     };
@@ -158,7 +166,6 @@ function layoutNode(
     } else if (m.flexGrow > 0 && totalGrow > 0) {
       childMain = Math.round((m.flexGrow / totalGrow) * remainingMain);
     } else {
-      // No explicit size, no grow: give remaining space equally among unsized children
       const unsized = measures.filter(mm => mm.fixedMain == null && mm.flexGrow === 0).length;
       childMain = unsized > 0 ? Math.round(remainingMain / unsized) : 0;
     }
