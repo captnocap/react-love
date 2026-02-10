@@ -40,11 +40,12 @@ function resolveDim(value: any, parentSize: number): number | null {
   return isNaN(parsed) ? null : parsed;
 }
 
-/** Get text content from an Instance (looks at children for __TEXT__ nodes). */
+/** Get text content from an Instance (looks at children for text nodes). */
 function getTextContent(instance: Instance): string | undefined {
   if ((instance as any).text != null) return String((instance as any).text);
   for (const child of instance.children) {
-    if ((child as any).type === '__TEXT__' && (child as any).text != null) {
+    // Match __TEXT__ typed nodes or TextInstance objects (which have text but no type)
+    if ((child as any).text != null) {
       return String((child as any).text);
     }
   }
@@ -60,6 +61,65 @@ function getPadding(style: Record<string, any>): { t: number; r: number; b: numb
     b: Math.round(Number(style.paddingBottom) || p),
     l: Math.round(Number(style.paddingLeft) || p),
   };
+}
+
+/**
+ * Estimate the intrinsic (content-based) size of an Instance along an axis.
+ * Used for auto-sizing children without explicit dimensions or flexGrow.
+ *
+ * For text/leaf nodes: 1 row/col.
+ * For containers: sum (column) or max (row) of children's intrinsic sizes + padding + gaps.
+ */
+function estimateIntrinsicMain(instance: Instance, axis: 'row' | 'column'): number {
+  const style = instance.props?.style || {};
+  const pad = getPadding(style);
+  const padMain = axis === 'column' ? pad.t + pad.b : pad.l + pad.r;
+
+  // Text/leaf nodes: 1 content unit + padding
+  const type = instance.type;
+  if (type === 'Text' || type === 'text' || type === '__TEXT__') {
+    return padMain + 1;
+  }
+
+  const layoutChildren = instance.children.filter(
+    (c): c is Instance => 'type' in c && (c as any).type !== '__TEXT__'
+  );
+
+  if (layoutChildren.length === 0) {
+    return padMain + 1;
+  }
+
+  const direction: string = style.flexDirection || 'column';
+  const gap = Math.round(Number(style.gap) || 0);
+  const totalGaps = Math.max(0, layoutChildren.length - 1) * gap;
+
+  // Determine the axis this container lays out on
+  const isRow = direction === 'row';
+
+  if ((axis === 'column' && !isRow) || (axis === 'row' && isRow)) {
+    // Same axis as parent: sum children's sizes along this axis
+    let sum = 0;
+    for (const child of layoutChildren) {
+      const cs = child.props?.style || {};
+      const explicit = axis === 'column'
+        ? (cs.height != null ? Math.round(Number(cs.height) || 0) : null)
+        : (cs.width != null ? Math.round(Number(cs.width) || 0) : null);
+      if (explicit != null && typeof cs[axis === 'column' ? 'height' : 'width'] === 'number') {
+        sum += explicit;
+      } else {
+        sum += estimateIntrinsicMain(child, axis);
+      }
+    }
+    return padMain + sum + totalGaps;
+  } else {
+    // Cross axis: max of children's sizes
+    let max = 0;
+    for (const child of layoutChildren) {
+      const size = estimateIntrinsicMain(child, axis);
+      if (size > max) max = size;
+    }
+    return padMain + max;
+  }
 }
 
 /**
@@ -129,11 +189,13 @@ function layoutNode(
     instance: Instance;
     fixedMain: number | null;
     fixedCross: number | null;
+    autoMain: number;  // estimated intrinsic size for unsized children
     flexGrow: number;
   }
 
   const measures: ChildMeasure[] = [];
   let totalFixed = 0;
+  let totalAuto = 0;
   let totalGrow = 0;
   const totalGaps = Math.max(0, childInstances.length - 1) * gap;
 
@@ -146,16 +208,22 @@ function layoutNode(
     const fixedMain = resolveDim(isRow ? cs.width : cs.height, mainAvail);
     const fixedCross = resolveDim(isRow ? cs.height : cs.width, crossAvail);
 
-    measures.push({ instance: child, fixedMain, fixedCross, flexGrow: grow });
+    // Estimate intrinsic size for unsized children
+    const autoMain = estimateIntrinsicMain(child, isRow ? 'row' : 'column');
+
+    measures.push({ instance: child, fixedMain, fixedCross, autoMain, flexGrow: grow });
 
     if (fixedMain != null) {
       totalFixed += fixedMain;
+    } else if (grow === 0) {
+      totalAuto += autoMain;
     }
     totalGrow += grow;
   }
 
-  // Distribute remaining space to flex growers
-  const remainingMain = Math.max(0, mainAvail - totalFixed - totalGaps);
+  // Distribute remaining space: auto-sized children get their intrinsic size,
+  // flex-grow children split whatever remains after fixed + auto + gaps
+  const remainingForGrow = Math.max(0, mainAvail - totalFixed - totalAuto - totalGaps);
   const childLayouts: LayoutNode[] = [];
   let cursor = 0;
 
@@ -164,10 +232,9 @@ function layoutNode(
     if (m.fixedMain != null) {
       childMain = m.fixedMain;
     } else if (m.flexGrow > 0 && totalGrow > 0) {
-      childMain = Math.round((m.flexGrow / totalGrow) * remainingMain);
+      childMain = Math.round((m.flexGrow / totalGrow) * remainingForGrow);
     } else {
-      const unsized = measures.filter(mm => mm.fixedMain == null && mm.flexGrow === 0).length;
-      childMain = unsized > 0 ? Math.round(remainingMain / unsized) : 0;
+      childMain = m.autoMain;
     }
 
     const childCross = m.fixedCross ?? crossAvail;

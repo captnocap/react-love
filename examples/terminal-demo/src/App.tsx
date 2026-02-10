@@ -42,7 +42,7 @@ function ProgressBar({ label, value, color }: { label: string; value: number; co
       <Box style={{ flexGrow: 1 }}>
         <Text style={{ color }}>{bar}</Text>
       </Box>
-      <Box style={{ width: 5 }}>
+      <Box style={{ width: 6 }}>
         <Text style={{ color: '#ffffff' }}>{value}%</Text>
       </Box>
     </Box>
