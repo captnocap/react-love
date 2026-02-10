@@ -78,8 +78,11 @@ function Events.hitTest(node, mx, my)
     if hit then return hit end
   end
 
-  -- Return this node only if it has JS event handlers
+  -- Return this node if it has JS event handlers
   if node.hasHandlers then return node end
+  -- Also return scroll containers so wheel events can scroll them
+  -- even when no JS handler is attached
+  if isScroll then return node end
   return nil
 end
 

@@ -29,13 +29,14 @@ local fontCache = {}
 --- @param size number         Font size in pixels (default 14)
 --- @param fontFamily string|nil  Path to a .ttf/.otf font file, or nil for default
 --- @return love.Font
-function Measure.getFont(size, fontFamily)
+function Measure.getFont(size, fontFamily, fontWeight)
   size = math.floor(size or 14)
+  local isBold = fontWeight == "bold" or (type(fontWeight) == "number" and fontWeight >= 700)
   local key
   if fontFamily then
-    key = fontFamily .. "\0" .. size
+    key = fontFamily .. (isBold and "\1bold\0" or "\0") .. size
   else
-    key = size
+    key = (isBold and "bold\0" or "") .. size
   end
 
   if not fontCache[key] then
@@ -53,7 +54,7 @@ function Measure.getFont(size, fontFamily)
       fontCache[key] = love.graphics.newFont(size)
     end
   end
-  return fontCache[key]
+  return fontCache[key], isBold
 end
 
 -- ============================================================================
@@ -64,14 +65,15 @@ local measureCache = {}
 local CACHE_MAX = 512
 
 --- Build a cache key from measurement parameters.
-local function cacheKey(text, fontSize, maxWidth, fontFamily, lineHeight, letterSpacing, numberOfLines)
+local function cacheKey(text, fontSize, maxWidth, fontFamily, lineHeight, letterSpacing, numberOfLines, fontWeight)
   -- Use -1 as sentinel for nil values
   local mw = maxWidth or -1
   local ff = fontFamily or ""
   local lh = lineHeight or -1
   local ls = letterSpacing or 0
   local nl = numberOfLines or -1
-  return text .. "\0" .. fontSize .. "\0" .. mw .. "\0" .. ff .. "\0" .. lh .. "\0" .. ls .. "\0" .. nl
+  local fw = fontWeight or ""
+  return text .. "\0" .. fontSize .. "\0" .. mw .. "\0" .. ff .. "\0" .. lh .. "\0" .. ls .. "\0" .. nl .. "\0" .. fw
 end
 
 --- Evict the entire measurement cache.
@@ -115,7 +117,7 @@ end
 --- @param letterSpacing number|nil  Extra space between characters in pixels.
 --- @param numberOfLines number|nil  Maximum number of lines; height is clamped if set.
 --- @return table  { width = number, height = number }
-function Measure.measureText(text, fontSize, maxWidth, fontFamily, lineHeight, letterSpacing, numberOfLines)
+function Measure.measureText(text, fontSize, maxWidth, fontFamily, lineHeight, letterSpacing, numberOfLines, fontWeight)
   fontSize = fontSize or 14
   text = tostring(text or "")
 
@@ -124,13 +126,13 @@ function Measure.measureText(text, fontSize, maxWidth, fontFamily, lineHeight, l
   end
 
   -- Check cache
-  local key = cacheKey(text, fontSize, maxWidth, fontFamily, lineHeight, letterSpacing, numberOfLines)
+  local key = cacheKey(text, fontSize, maxWidth, fontFamily, lineHeight, letterSpacing, numberOfLines, fontWeight)
   local cached = measureCache[key]
   if cached then
     return cached
   end
 
-  local font = Measure.getFont(fontSize, fontFamily)
+  local font = Measure.getFont(fontSize, fontFamily, fontWeight)
   local effectiveLineH = lineHeight or font:getHeight()
   local result
 

@@ -21,7 +21,7 @@ export function ImageBasicStory() {
       {/* objectFit: contain */}
       <Box style={{ gap: 4 }}>
         <Text style={{ color: '#888', fontSize: 10 }}>objectFit: contain</Text>
-        <Box style={{ backgroundColor: '#1e293b', borderRadius: 4 }}>
+        <Box style={{ width: 200, height: 100, backgroundColor: '#1e293b', borderRadius: 4 }}>
           <Image src={PLACEHOLDER_SRC} style={{ width: 200, height: 100, objectFit: 'contain' }} />
         </Box>
       </Box>
@@ -29,7 +29,7 @@ export function ImageBasicStory() {
       {/* objectFit: cover */}
       <Box style={{ gap: 4 }}>
         <Text style={{ color: '#888', fontSize: 10 }}>objectFit: cover</Text>
-        <Box style={{ borderRadius: 4, overflow: 'hidden' }}>
+        <Box style={{ width: 200, height: 80, borderRadius: 4, overflow: 'hidden' }}>
           <Image src={PLACEHOLDER_SRC} style={{ width: 200, height: 80, objectFit: 'cover' }} />
         </Box>
       </Box>

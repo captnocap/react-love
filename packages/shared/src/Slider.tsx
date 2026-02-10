@@ -76,8 +76,11 @@ export function Slider({
   // Track container ref (for web mode drag calculations)
   const trackRef = useRef<HTMLDivElement>(null);
 
-  // Track size for calculations (native mode)
-  const [trackSize, setTrackSize] = useState({ width: 200, height: 200 });
+  // Value at the start of a native drag (used to apply relative deltas)
+  const dragStartValueRef = useRef(0);
+
+  // Track width for native mode calculations
+  const trackWidth = (style?.width as number) || 200;
 
   /** Update value, respecting controlled mode and step snapping. */
   const updateValue = useCallback(
@@ -171,47 +174,37 @@ export function Slider({
     }
   }, [mode, isDragging, handleWebDragMove, handleWebDragEnd]);
 
-  // Native mode drag handlers
+  // Native mode drag handlers -- use relative deltas from drag start
   const handleNativeDragStart = useCallback(
     (event: LoveEvent) => {
       if (disabled) return;
       setIsDragging(true);
+      dragStartValueRef.current = currentValue;
       onSlidingStart?.();
-
-      // Calculate position from event coordinates
-      // In native mode, we need to track the container bounds
-      // For now, we'll use the event x/y relative to a known track size
-      const position = vertical
-        ? 1 - (event.y ?? 0) / trackSize.height
-        : (event.x ?? 0) / trackSize.width;
-
-      const newValue = positionToValue(clamp(position, 0, 1));
-      updateValue(newValue);
     },
-    [disabled, vertical, trackSize, positionToValue, updateValue, onSlidingStart]
+    [disabled, currentValue, onSlidingStart]
   );
 
   const handleNativeDrag = useCallback(
     (event: LoveEvent) => {
-      if (!isDragging) return;
-
-      const position = vertical
-        ? 1 - (event.y ?? 0) / trackSize.height
-        : (event.x ?? 0) / trackSize.width;
-
-      const newValue = positionToValue(clamp(position, 0, 1));
-      updateValue(newValue);
+      // Convert total drag distance to a value delta
+      const totalDelta = vertical
+        ? -(event.totalDeltaY ?? 0)
+        : (event.totalDeltaX ?? 0);
+      const positionDelta = totalDelta / trackWidth;
+      const range = maximumValue - minimumValue;
+      const newValue = dragStartValueRef.current + positionDelta * range;
+      updateValue(clamp(newValue, minimumValue, maximumValue));
     },
-    [isDragging, vertical, trackSize, positionToValue, updateValue]
+    [vertical, trackWidth, minimumValue, maximumValue, updateValue]
   );
 
   const handleNativeDragEnd = useCallback(
     (event: LoveEvent) => {
-      if (!isDragging) return;
       setIsDragging(false);
       updateValue(currentValue, true);
     },
-    [isDragging, currentValue, updateValue]
+    [currentValue, updateValue]
   );
 
   // Calculate thumb position based on current value
@@ -295,19 +288,47 @@ export function Slider({
     );
   }
 
-  // Native mode
+  // Native mode: flex-based layout (no position:absolute needed)
+  // Three segments in a row: active track | thumb | inactive track
+  const activeWidth = Math.max(0, thumbPosition * (trackWidth - thumbSize));
+  const inactiveWidth = Math.max(0, (1 - thumbPosition) * (trackWidth - thumbSize));
+
   return (
-    <Box style={containerStyle}>
-      <Box
-        style={trackStyle}
-        onClick={handleNativeDragStart}
-        onDragStart={handleNativeDragStart}
-        onDrag={handleNativeDrag}
-        onDragEnd={handleNativeDragEnd}
-      >
-        <Box style={activeTrackStyle} />
-        <Box style={thumbStyle} />
-      </Box>
+    <Box
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        width: trackWidth,
+        height: thumbSize + 8,
+        opacity: disabled ? 0.5 : 1,
+        ...style,
+      }}
+      onDragStart={handleNativeDragStart}
+      onDrag={handleNativeDrag}
+      onDragEnd={handleNativeDragEnd}
+      onClick={handleNativeDragStart}
+    >
+      {/* Active track (left of thumb) */}
+      <Box style={{
+        width: activeWidth,
+        height: trackHeight,
+        backgroundColor: activeTrackColor,
+        borderRadius: trackHeight / 2,
+      }} />
+      {/* Thumb */}
+      <Box style={{
+        width: thumbSize,
+        height: thumbSize,
+        borderRadius: thumbSize / 2,
+        backgroundColor: thumbColor,
+      }} />
+      {/* Inactive track (right of thumb) */}
+      <Box style={{
+        width: inactiveWidth,
+        height: trackHeight,
+        backgroundColor: trackColor,
+        borderRadius: trackHeight / 2,
+      }} />
     </Box>
   );
 }

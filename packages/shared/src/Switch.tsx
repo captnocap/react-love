@@ -115,12 +115,30 @@ export function Switch({
     );
   }
 
-  // Native mode
+  // Native mode: flex-based layout (no position:absolute needed)
+  // Use justifyContent to push thumb left (OFF) or right (ON)
   return (
-    <Box style={containerStyle} onClick={handleToggle}>
-      <Box style={trackStyle}>
-        <Box style={thumbStyle} />
-      </Box>
+    <Box
+      style={{
+        width,
+        height,
+        borderRadius: height / 2,
+        backgroundColor: currentValue ? trackColor.true : trackColor.false,
+        opacity: disabled ? 0.5 : 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: currentValue ? 'end' : 'start',
+        padding: thumbPadding,
+        ...style,
+      }}
+      onClick={handleToggle}
+    >
+      <Box style={{
+        width: thumbDiameter,
+        height: thumbDiameter,
+        borderRadius: thumbDiameter / 2,
+        backgroundColor: thumbColor,
+      }} />
     </Box>
   );
 }

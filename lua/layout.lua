@@ -126,6 +126,21 @@ local function resolveFontSize(node)
   return 14  -- default
 end
 
+--- Get the fontWeight for a text node, checking the node's own style
+--- and walking up to parent Text node if this is a __TEXT__ child.
+--- Returns nil when not set.
+local function resolveFontWeight(node)
+  local s = node.style or {}
+  if s.fontWeight then return s.fontWeight end
+
+  if node.type == "__TEXT__" and node.parent then
+    local ps = node.parent.style or {}
+    if ps.fontWeight then return ps.fontWeight end
+  end
+
+  return nil
+end
+
 --- Get the fontFamily for a text node, checking the node's own style
 --- and walking up to parent Text node if this is a __TEXT__ child.
 --- Returns nil for default font.
@@ -199,11 +214,12 @@ local function measureTextNode(node, availW)
 
   local fontSize = resolveFontSize(node)
   local fontFamily = resolveFontFamily(node)
+  local fontWeight = resolveFontWeight(node)
   local lineHeight = resolveLineHeight(node)
   local letterSpacing = resolveLetterSpacing(node)
   local numberOfLines = resolveNumberOfLines(node)
 
-  local result = Measure.measureText(text, fontSize, availW, fontFamily, lineHeight, letterSpacing, numberOfLines)
+  local result = Measure.measureText(text, fontSize, availW, fontFamily, lineHeight, letterSpacing, numberOfLines, fontWeight)
   return result.width, result.height
 end
 
@@ -267,6 +283,25 @@ function Layout.layoutNode(node, px, py, pw, ph)
   local explicitH = ru(s.height, ph)
   local w = explicitW or pw or 0
   local h = explicitH
+
+  -- aspectRatio: compute missing dimension from the other
+  local ar = s.aspectRatio
+  if ar and ar > 0 then
+    if explicitW and not h then
+      h = explicitW / ar
+    elseif h and not explicitW then
+      w = h * ar
+    end
+  end
+
+  -- Flex-adjusted width: if parent's flex algorithm (grow/shrink) assigned
+  -- a different main-axis size, use it instead of explicitW so the child
+  -- respects the flex distribution.
+  if node._flexW then
+    w = node._flexW
+    node._flexW = nil
+  end
+
   -- Flex-stretch: if parent assigned a cross-axis dimension, use it
   -- so innerH is correct for children and auto-sizing doesn't override it.
   if h == nil and node._stretchH then
@@ -370,7 +405,8 @@ function Layout.layoutNode(node, px, py, pw, ph)
 
       local cw   = ru(cs.width, innerW)
       local ch   = ru(cs.height, innerH)
-      local grow = cs.flexGrow or 0
+      local grow   = cs.flexGrow or 0
+      local shrink = cs.flexShrink
 
       -- Resolve child min/max constraints
       local cMinW = ru(cs.minWidth, innerW)
@@ -453,8 +489,18 @@ function Layout.layoutNode(node, px, py, pw, ph)
         basis = isRow and (cw or 0) or (ch or 0)
       end
 
+      -- aspectRatio: compute missing dimension from the other
+      local ar = cs.aspectRatio
+      if ar and ar > 0 then
+        if cw and not ch then
+          ch = cw / ar
+        elseif ch and not cw then
+          cw = ch * ar
+        end
+      end
+
       childInfos[i] = {
-        w = cw, h = ch, grow = grow, basis = basis,
+        w = cw, h = ch, grow = grow, shrink = shrink, basis = basis,
         marL = cmarL, marR = cmarR, marT = cmarT, marB = cmarB,
         mainMarginStart = mainMarginStart, mainMarginEnd = mainMarginEnd,
         isText = childIsText,
@@ -522,30 +568,50 @@ function Layout.layoutNode(node, px, py, pw, ph)
     local lineCount = #line
 
     -- ----------------------------------------------------------------
-    -- Flex-grow distribution within this line
+    -- Flex-grow / flex-shrink distribution within this line
     -- ----------------------------------------------------------------
-    local lineTotalFixed = 0
+    local lineTotalBasis = 0
     local lineTotalFlex = 0
     local lineTotalMarginMain = 0
 
     for _, idx in ipairs(line) do
       local ci = childInfos[idx]
       lineTotalMarginMain = lineTotalMarginMain + ci.mainMarginStart + ci.mainMarginEnd
+      lineTotalBasis = lineTotalBasis + ci.basis
       if ci.grow > 0 then
         lineTotalFlex = lineTotalFlex + ci.grow
-      else
-        lineTotalFixed = lineTotalFixed + ci.basis
       end
     end
 
     local lineGaps = math.max(0, lineCount - 1) * gap
-    local lineAvail = mainSize - lineTotalFixed - lineGaps - lineTotalMarginMain
+    local lineAvail = mainSize - lineTotalBasis - lineGaps - lineTotalMarginMain
 
-    if lineTotalFlex > 0 and lineAvail > 0 then
+    if lineAvail > 0 and lineTotalFlex > 0 then
+      -- Positive free space: distribute to flex-grow items
       for _, idx in ipairs(line) do
         local ci = childInfos[idx]
         if ci.grow > 0 then
-          ci.basis = (ci.grow / lineTotalFlex) * lineAvail
+          ci.basis = ci.basis + (ci.grow / lineTotalFlex) * lineAvail
+        end
+      end
+    elseif lineAvail < 0 then
+      -- Negative free space: shrink items proportional to flexShrink * basis
+      -- Default flexShrink is 1 (CSS spec) unless explicitly set to 0
+      local totalShrinkScaled = 0
+      for _, idx in ipairs(line) do
+        local ci = childInfos[idx]
+        local sh = ci.shrink
+        if sh == nil then sh = 1 end  -- CSS default
+        totalShrinkScaled = totalShrinkScaled + sh * ci.basis
+      end
+      if totalShrinkScaled > 0 then
+        local overflow = -lineAvail
+        for _, idx in ipairs(line) do
+          local ci = childInfos[idx]
+          local sh = ci.shrink
+          if sh == nil then sh = 1 end
+          local shrinkAmount = (sh * ci.basis / totalShrinkScaled) * overflow
+          ci.basis = math.max(0, ci.basis - shrinkAmount)
         end
       end
     end
@@ -712,6 +778,21 @@ function Layout.layoutNode(node, px, py, pw, ph)
           cw_final = clampDim(crossAvail, ci.minW, ci.maxW)
         else  -- "start" or default
           cx = x + padL + crossCursor + ci.marL
+        end
+      end
+
+      -- Signal flex-adjusted main-axis size to child so its layoutNode
+      -- uses the flex-distributed size instead of its own explicit dimension.
+      -- Row: flex adjusts width; Column: flex adjusts height.
+      if isRow then
+        local explicitChildW = ru(cs.width, innerW)
+        if explicitChildW and cw_final ~= explicitChildW then
+          child._flexW = cw_final
+        end
+      else
+        local explicitChildH = ru(cs.height, innerH)
+        if explicitChildH and ch_final ~= explicitChildH then
+          child._stretchH = ch_final
         end
       end
 

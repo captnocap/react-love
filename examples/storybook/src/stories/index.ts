@@ -26,6 +26,10 @@ import { TransformStory } from './Transform';
 import { OpacityStory } from './Opacity';
 import { ZIndexStory } from './ZIndex';
 import { BorderRadiusStory } from './BorderRadius';
+import { FlexShrinkStory } from './FlexShrink';
+import { AspectRatioStory } from './AspectRatio';
+import { TextDecorationStory } from './TextDecoration';
+import { PerSideBorderStory } from './PerSideBorder';
 import { AnimationTimingStory } from './AnimationTiming';
 import { AnimationSpringStory } from './AnimationSpring';
 
@@ -56,6 +60,12 @@ export const stories: StoryDef[] = [
   { id: 'opacity', title: 'Opacity', category: 'Visual', component: OpacityStory },
   { id: 'zindex', title: 'Z-Index', category: 'Visual', component: ZIndexStory },
   { id: 'border-radius', title: 'Border Radius', category: 'Visual', component: BorderRadiusStory },
+
+  // CSS Features
+  { id: 'flex-shrink', title: 'Flex Shrink', category: 'CSS Features', component: FlexShrinkStory },
+  { id: 'aspect-ratio', title: 'Aspect Ratio', category: 'CSS Features', component: AspectRatioStory },
+  { id: 'text-decoration', title: 'Text Decoration', category: 'CSS Features', component: TextDecorationStory },
+  { id: 'per-side-border', title: 'Per-Side Borders', category: 'CSS Features', component: PerSideBorderStory },
 
   // Animation
   { id: 'animation-timing', title: 'Spring Width', category: 'Animation', component: AnimationTimingStory },

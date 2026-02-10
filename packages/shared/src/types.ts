@@ -16,6 +16,9 @@ export interface Style {
   maxWidth?: number | string;
   maxHeight?: number | string;
 
+  // Sizing
+  aspectRatio?: number;
+
   // Flexbox
   display?: 'flex' | 'none';
   flexDirection?: 'row' | 'column';
@@ -50,6 +53,10 @@ export interface Style {
   backgroundColor?: Color;
   borderRadius?: number;
   borderWidth?: number;
+  borderTopWidth?: number;
+  borderRightWidth?: number;
+  borderBottomWidth?: number;
+  borderLeftWidth?: number;
   borderColor?: Color;
   overflow?: 'visible' | 'hidden' | 'scroll';
   opacity?: number;
@@ -87,6 +94,7 @@ export interface Style {
   fontWeight?: 'normal' | 'bold' | number;
   textAlign?: 'left' | 'center' | 'right';
   textOverflow?: 'clip' | 'ellipsis';
+  textDecorationLine?: 'none' | 'underline' | 'line-through';
   lineHeight?: number;
   letterSpacing?: number;
 

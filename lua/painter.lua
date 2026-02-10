@@ -505,29 +505,63 @@ function Painter.paintNode(node, inheritedOpacity, stencilDepth)
     end
 
     -- Border stroke
-    if s.borderWidth and s.borderWidth > 0 then
+    local bwT = s.borderTopWidth or s.borderWidth or 0
+    local bwR = s.borderRightWidth or s.borderWidth or 0
+    local bwB = s.borderBottomWidth or s.borderWidth or 0
+    local bwL = s.borderLeftWidth or s.borderWidth or 0
+    local hasUniformBorder = s.borderWidth and s.borderWidth > 0
+        and not s.borderTopWidth and not s.borderRightWidth
+        and not s.borderBottomWidth and not s.borderLeftWidth
+    local hasPerSideBorder = (bwT > 0 or bwR > 0 or bwB > 0 or bwL > 0) and not hasUniformBorder
+
+    if hasUniformBorder then
+      -- Fast path: uniform border via rectangle stroke
       Painter.setColor(s.borderColor or { 0.5, 0.5, 0.5, 1 })
       Painter.applyOpacity(effectiveOpacity)
       love.graphics.setLineWidth(s.borderWidth)
       love.graphics.rectangle("line", c.x, c.y, c.w, c.h, borderRadius, borderRadius)
+    elseif hasPerSideBorder then
+      -- Per-side borders: draw individual lines
+      Painter.setColor(s.borderColor or { 0.5, 0.5, 0.5, 1 })
+      Painter.applyOpacity(effectiveOpacity)
+      if bwT > 0 then
+        love.graphics.setLineWidth(bwT)
+        love.graphics.line(c.x, c.y + bwT/2, c.x + c.w, c.y + bwT/2)
+      end
+      if bwB > 0 then
+        love.graphics.setLineWidth(bwB)
+        love.graphics.line(c.x, c.y + c.h - bwB/2, c.x + c.w, c.y + c.h - bwB/2)
+      end
+      if bwL > 0 then
+        love.graphics.setLineWidth(bwL)
+        love.graphics.line(c.x + bwL/2, c.y, c.x + bwL/2, c.y + c.h)
+      end
+      if bwR > 0 then
+        love.graphics.setLineWidth(bwR)
+        love.graphics.line(c.x + c.w - bwR/2, c.y, c.x + c.w - bwR/2, c.y + c.h)
+      end
     end
 
   elseif node.type == "Text" or node.type == "__TEXT__" then
     -- Resolve text style properties (with inheritance for __TEXT__ children)
     local fontSize = s.fontSize or 14
     local fontFamily = resolveFontFamily(node)
+    local fontWeight = s.fontWeight
     local lineHeight = resolveLineHeight(node)
     local letterSpacing = resolveLetterSpacing(node)
     local textOverflow = resolveTextOverflow(node)
     local numberOfLines = resolveNumberOfLines(node)
+    local textDecorationLine = s.textDecorationLine
 
-    -- If this is a __TEXT__ child, inherit fontSize from parent
-    if not s.fontSize and node.type == "__TEXT__" and node.parent then
+    -- If this is a __TEXT__ child, inherit from parent Text node
+    if node.type == "__TEXT__" and node.parent then
       local ps = node.parent.style or {}
-      if ps.fontSize then fontSize = ps.fontSize end
+      if not s.fontSize and ps.fontSize then fontSize = ps.fontSize end
+      if not fontWeight then fontWeight = ps.fontWeight end
+      if not textDecorationLine then textDecorationLine = ps.textDecorationLine end
     end
 
-    local font = getFont(fontSize, fontFamily)
+    local font, isBold = getFont(fontSize, fontFamily, fontWeight)
     love.graphics.setFont(font)
 
     -- Text color with opacity (inherit from parent Text for __TEXT__ children)
@@ -558,6 +592,10 @@ function Painter.paintNode(node, inheritedOpacity, stencilDepth)
     if not needsManualRendering then
       -- Fast path: standard Love2D text rendering
       love.graphics.printf(text, c.x, c.y, c.w, align)
+      -- Bold simulation: draw again offset by 1px (faux-bold)
+      if isBold then
+        love.graphics.printf(text, c.x + 0.8, c.y, c.w, align)
+      end
     else
       -- Manual rendering path: get wrapped/truncated lines, draw each
       local effectiveLineH = lineHeight or font:getHeight()
@@ -567,8 +605,10 @@ function Painter.paintNode(node, inheritedOpacity, stencilDepth)
         local truncated = Painter.truncateWithEllipsis(font, text, c.w, letterSpacing)
         if hasLetterSpacing then
           drawLineWithSpacing(font, truncated, c.x, c.y, letterSpacing, align, c.w)
+          if isBold then drawLineWithSpacing(font, truncated, c.x + 0.8, c.y, letterSpacing, align, c.w) end
         else
           drawLineNormal(font, truncated, c.x, c.y, align, c.w)
+          if isBold then drawLineNormal(font, truncated, c.x + 0.8, c.y, align, c.w) end
         end
       else
         -- Multi-line path: get visible lines (possibly truncated)
@@ -578,10 +618,27 @@ function Painter.paintNode(node, inheritedOpacity, stencilDepth)
           local ly = c.y + (i - 1) * effectiveLineH
           if hasLetterSpacing then
             drawLineWithSpacing(font, line, c.x, ly, letterSpacing, align, c.w)
+            if isBold then drawLineWithSpacing(font, line, c.x + 0.8, ly, letterSpacing, align, c.w) end
           else
             drawLineNormal(font, line, c.x, ly, align, c.w)
+            if isBold then drawLineNormal(font, line, c.x + 0.8, ly, align, c.w) end
           end
         end
+      end
+    end
+
+    -- Text decoration (underline, line-through)
+    if textDecorationLine and textDecorationLine ~= "none" then
+      local fontH = font:getHeight()
+      local textW = c.w -- full width for decoration line
+      if textDecorationLine == "underline" then
+        local baselineY = c.y + fontH - font:getDescent()
+        love.graphics.setLineWidth(1)
+        love.graphics.line(c.x, baselineY, c.x + textW, baselineY)
+      elseif textDecorationLine == "line-through" then
+        local midY = c.y + fontH * 0.45
+        love.graphics.setLineWidth(1)
+        love.graphics.line(c.x, midY, c.x + textW, midY)
       end
     end
 
