@@ -40,6 +40,10 @@ local getFont = Measure.getFont
 function Painter.setColor(c)
   if not c then return end
   if type(c) == "string" then
+    if c == "transparent" then
+      love.graphics.setColor(0, 0, 0, 0)
+      return
+    end
     local r, g, b, a = c:match("#(%x%x)(%x%x)(%x%x)(%x?%x?)")
     if r then
       local alpha = 1
@@ -493,7 +497,7 @@ function Painter.paintNode(node, inheritedOpacity, stencilDepth)
       else
         drawGradient(c.x, c.y, c.w, c.h, grad.direction, grad.colors[1], grad.colors[2], effectiveOpacity)
       end
-    elseif s.backgroundColor then
+    elseif s.backgroundColor and s.backgroundColor ~= "transparent" then
       -- Solid background fill
       Painter.setColor(s.backgroundColor)
       Painter.applyOpacity(effectiveOpacity)
@@ -526,8 +530,12 @@ function Painter.paintNode(node, inheritedOpacity, stencilDepth)
     local font = getFont(fontSize, fontFamily)
     love.graphics.setFont(font)
 
-    -- Text color with opacity
-    Painter.setColor(s.color or { 1, 1, 1, 1 })
+    -- Text color with opacity (inherit from parent Text for __TEXT__ children)
+    local textColor = s.color
+    if not textColor and node.type == "__TEXT__" and node.parent then
+      textColor = (node.parent.style or {}).color
+    end
+    Painter.setColor(textColor or { 1, 1, 1, 1 })
     Painter.applyOpacity(effectiveOpacity)
 
     -- Resolve text content

@@ -11,12 +11,15 @@
   Values cross the bridge via direct QuickJS C API traversal (no JSON).
   This eliminates per-frame GC pressure from JSON.stringify/parse on both sides.
 
-  This is the same architectural pattern as React Native's JSI bridge,
-  except simpler because we only need unidirectional command buffers.
+  Host functions use C trampolines (qjs_ffi_shim.c) because LuaJIT cannot
+  create FFI callbacks that return structs by value (JSValue is a 16-byte struct).
+  The trampolines call void-returning Lua callbacks with pointer-based signatures.
 ]]
 
 local ffi = require("ffi")
-local json = require("json")  -- need a JSON lib (cjson, lunajson, etc.)
+local ok_json, json = pcall(require, "json")
+if not ok_json then ok_json, json = pcall(require, "lib.json") end
+if not ok_json then json = nil end  -- JSON fallback disabled; direct FFI only
 local Measure = require("lua.measure")
 
 -- ============================================================================
@@ -56,15 +59,14 @@ ffi.cdef[[
   JSValue JS_GetPropertyStr(JSContext *ctx, JSValue this_obj, const char *prop);
   int JS_SetPropertyStr(JSContext *ctx, JSValue this_obj, const char *prop, JSValue val);
 
-  /* Function creation */
-  typedef JSValue (*JSCFunction)(JSContext *ctx, JSValue this_val,
-                                  int argc, JSValue *argv);
-  JSValue JS_NewCFunction(JSContext *ctx, JSCFunction func, const char *name, int length);
-
   /* Type checking */
   int JS_IsException(JSValue val);
   int JS_IsUndefined(JSValue val);
   JSValue JS_GetException(JSContext *ctx);
+
+  /* Function calls */
+  JSValue JS_Call(JSContext *ctx, JSValue func_obj, JSValue this_val,
+                  int argc, JSValue *argv);
 
   /* Job queue (promises, async) */
   int JS_ExecutePendingJob(JSRuntime *rt, JSContext **pctx);
@@ -74,7 +76,7 @@ ffi.cdef[[
   void js_std_add_helpers(JSContext *ctx, int argc, char **argv);
 
   /* Array/object traversal (direct FFI value passing) */
-  int JS_IsArray(JSContext *ctx, JSValue val);
+  int JS_IsArray(JSValue val);
   JSValue JS_GetPropertyUint32(JSContext *ctx, JSValue this_obj, uint32_t idx);
   int JS_ToFloat64(JSContext *ctx, double *pres, JSValue val);
   int JS_ToBool(JSContext *ctx, JSValue val);
@@ -95,6 +97,18 @@ ffi.cdef[[
   const char *JS_AtomToCString(JSContext *ctx, JSAtom atom);
   void JS_FreeAtom(JSContext *ctx, JSAtom atom);
   void js_free(JSContext *ctx, void *ptr);
+
+  /* ---- C trampoline API (qjs_ffi_shim.c) ---- */
+  /* Lua callbacks use this signature (void return, pointer args) to avoid
+     LuaJIT's inability to return structs from FFI callbacks. */
+  typedef void (*HostCallback)(JSContext *ctx, int argc,
+                               JSValue *argv, JSValue *ret);
+
+  void qjs_set_host_flush(HostCallback cb);
+  void qjs_set_host_events(HostCallback cb);
+  void qjs_set_host_log(HostCallback cb);
+  void qjs_set_host_measure(HostCallback cb);
+  void qjs_register_host_functions(JSContext *ctx);
 ]]
 
 local JS_EVAL_TYPE_GLOBAL = 0
@@ -159,7 +173,7 @@ local function jsValueToLua(ctx, qjs, val, depth)
 
   elseif tag == TAG_OBJECT then
     -- Check if array
-    if qjs.JS_IsArray(ctx, val) ~= 0 then
+    if qjs.JS_IsArray(val) ~= 0 then
       local lengthVal = qjs.JS_GetPropertyStr(ctx, val, "length")
       local len = 0
       if qjs.JS_ToInt32(ctx, _int32_buf, lengthVal) == 0 then
@@ -330,6 +344,20 @@ Bridge.__index = Bridge
 function Bridge.new(libpath)
   libpath = libpath or "lib/libquickjs"
 
+  -- ffi.load uses dlopen which resolves relative to process CWD, not Love2D's
+  -- game directory. Resolve to an absolute path using love.filesystem.getSource().
+  if libpath:sub(1, 1) ~= "/" and love and love.filesystem then
+    local source = love.filesystem.getSource()
+    if source then
+      libpath = source .. "/" .. libpath
+    end
+  end
+
+  -- dlopen doesn't auto-append .so when path contains /, so add it explicitly
+  if not libpath:match("%.so") and not libpath:match("%.dylib") then
+    libpath = libpath .. ".so"
+  end
+
   local qjs = ffi.load(libpath)
 
   local self = setmetatable({
@@ -360,11 +388,10 @@ function Bridge.new(libpath)
   -- Validate JSValue tag layout for this QuickJS build
   validateTags(self.ctx, qjs)
 
-  -- Expose host functions
-  self:_exposeHostFlush()
-  self:_exposeHostGetEvents()
-  self:_exposeHostLog()
-  self:_exposeHostMeasureText()
+  -- Expose host functions via C trampolines
+  -- (LuaJIT can't create callbacks returning JSValue structs, so the C shim
+  --  provides trampoline functions that call these void-returning Lua callbacks)
+  self:_setupHostFunctions()
 
   -- Polyfill basics if std helpers aren't available
   self:eval([[
@@ -412,210 +439,115 @@ function Bridge.new(libpath)
         }
       };
     }
+
+    // Override queueMicrotask to use our timer queue instead of QuickJS's
+    // internal Promise job queue. React's scheduler uses queueMicrotask
+    // which creates an infinite microtask chain that blocks JS_Eval return.
+    globalThis.queueMicrotask = function(fn) {
+      globalThis.setTimeout(fn, 0);
+    };
   ]], "<polyfills>")
 
   return self
 end
 
 -- ============================================================================
--- Host function: __hostFlush
--- Called by React renderer to send mutation commands to Lua
+-- Host functions via C trampolines
+--
+-- Each host function is a void-returning Lua callback registered via the C shim.
+-- Signature: void callback(JSContext *ctx, int argc, JSValue *argv, JSValue *ret)
+-- The C trampoline calls this, then returns *ret to QuickJS.
 -- ============================================================================
 
-function Bridge:_exposeHostFlush()
+function Bridge:_setupHostFunctions()
   local selfRef = self
-  local cb = ffi.cast("JSCFunction", function(ctx, this_val, argc, argv)
-    if argc < 1 then return ffi.new("JSValue", {0, TAG_UNDEFINED}) end
+  local qjs = self.qjs
 
-    if selfRef.useDirectFFI then
-      -- Direct FFI: argv[0] is a raw JS array, traverse it directly
-      -- Do NOT free argv[0] -- it belongs to the JS caller
-      local ok, commands = pcall(jsValueToLua, ctx, selfRef.qjs, argv[0])
-      if ok and type(commands) == "table" then
-        for _, cmd in ipairs(commands) do
-          selfRef.commandBuffer[#selfRef.commandBuffer + 1] = cmd
-        end
-      else
-        -- Fallback to JSON for this call
-        print("[react-love] Direct FFI failed in __hostFlush, falling back to JSON: " .. tostring(commands))
-        local cstr = selfRef.qjs.JS_ToCString(ctx, argv[0])
-        if cstr ~= nil then
-          local str = ffi.string(cstr)
-          selfRef.qjs.JS_FreeCString(ctx, cstr)
-          local jok, jcmds = pcall(json.decode, str)
-          if jok and type(jcmds) == "table" then
-            for _, cmd in ipairs(jcmds) do
-              selfRef.commandBuffer[#selfRef.commandBuffer + 1] = cmd
-            end
-          end
-        end
+  -- __hostFlush: JS sends mutation commands to Lua
+  local flushCb = ffi.cast("HostCallback", function(ctx, argc, argv, ret)
+    if argc < 1 then return end
+
+    -- Direct FFI: argv[0] is a raw JS array, traverse it directly
+    -- Do NOT free argv[0] -- it belongs to the JS caller
+    local ok, commands = pcall(jsValueToLua, ctx, qjs, argv[0])
+    if ok and type(commands) == "table" then
+      for _, cmd in ipairs(commands) do
+        selfRef.commandBuffer[#selfRef.commandBuffer + 1] = cmd
       end
     else
-      -- Legacy JSON path
-      local cstr = selfRef.qjs.JS_ToCString(ctx, argv[0])
-      if cstr ~= nil then
-        local str = ffi.string(cstr)
-        selfRef.qjs.JS_FreeCString(ctx, cstr)
-        local ok, commands = pcall(json.decode, str)
-        if ok and type(commands) == "table" then
-          for _, cmd in ipairs(commands) do
-            selfRef.commandBuffer[#selfRef.commandBuffer + 1] = cmd
-          end
-        else
-          print("[react-love] Failed to parse commands: " .. tostring(str):sub(1, 200))
-        end
-      end
+      print("[react-love] __hostFlush FFI traversal failed: " .. tostring(commands))
     end
-
-    return ffi.new("JSValue", {0, TAG_UNDEFINED})
+    -- ret already points to JS_UNDEFINED (set by C trampoline)
   end)
-  self._callbacks[#self._callbacks + 1] = cb  -- prevent GC
+  self._callbacks[#self._callbacks + 1] = flushCb
 
-  local global = self.qjs.JS_GetGlobalObject(self.ctx)
-  local fn = self.qjs.JS_NewCFunction(self.ctx, cb, "__hostFlush", 1)
-  self.qjs.JS_SetPropertyStr(self.ctx, global, "__hostFlush", fn)
-  self.qjs.JS_FreeValue(self.ctx, global)
-end
-
--- ============================================================================
--- Host function: __hostGetEvents
--- Called by React event dispatcher to poll for input events
--- ============================================================================
-
-function Bridge:_exposeHostGetEvents()
-  local selfRef = self
-  local cb = ffi.cast("JSCFunction", function(ctx, this_val, argc, argv)
+  -- __hostGetEvents: JS polls for input events from Lua
+  local eventsCb = ffi.cast("HostCallback", function(ctx, argc, argv, ret)
     local events = selfRef.eventQueue
     selfRef.eventQueue = {}
 
-    if selfRef.useDirectFFI then
-      -- Direct FFI: build a JS array and return it (ownership transfers to JS)
-      local ok, jsArr = pcall(luaToJSValue, ctx, selfRef.qjs, events)
-      if ok then
-        return jsArr
-      else
-        -- Fallback to JSON
-        print("[react-love] Direct FFI failed in __hostGetEvents, falling back to JSON: " .. tostring(jsArr))
-        local str = json.encode(events)
-        return selfRef.qjs.JS_NewString(ctx, str)
-      end
+    -- Build a JS array and write it to *ret (ownership transfers to JS)
+    local ok, jsArr = pcall(luaToJSValue, ctx, qjs, events)
+    if ok then
+      ret[0] = jsArr
     else
-      local str = json.encode(events)
-      return selfRef.qjs.JS_NewString(ctx, str)
+      print("[react-love] __hostGetEvents FFI construction failed: " .. tostring(jsArr))
     end
   end)
-  self._callbacks[#self._callbacks + 1] = cb
+  self._callbacks[#self._callbacks + 1] = eventsCb
 
-  local global = self.qjs.JS_GetGlobalObject(self.ctx)
-  local fn = self.qjs.JS_NewCFunction(self.ctx, cb, "__hostGetEvents", 0)
-  self.qjs.JS_SetPropertyStr(self.ctx, global, "__hostGetEvents", fn)
-  self.qjs.JS_FreeValue(self.ctx, global)
-end
-
--- ============================================================================
--- Host function: __hostLog
--- Routes console.log from JS to Love2D's print
--- ============================================================================
-
-function Bridge:_exposeHostLog()
-  local cb = ffi.cast("JSCFunction", function(ctx, this_val, argc, argv)
+  -- __hostLog: Routes console.log from JS to Love2D's print
+  local logCb = ffi.cast("HostCallback", function(ctx, argc, argv, ret)
     if argc >= 1 then
-      local cstr = ffi.C.JS_ToCString(ctx, argv[0])
+      local cstr = qjs.JS_ToCString(ctx, argv[0])
       if cstr ~= nil then
         print("[JS] " .. ffi.string(cstr))
-        ffi.C.JS_FreeCString(ctx, cstr)
+        qjs.JS_FreeCString(ctx, cstr)
       end
     end
-    return ffi.new("JSValue", {0, 3})
   end)
-  self._callbacks[#self._callbacks + 1] = cb
+  self._callbacks[#self._callbacks + 1] = logCb
 
-  local global = self.qjs.JS_GetGlobalObject(self.ctx)
-  local fn = self.qjs.JS_NewCFunction(self.ctx, cb, "__hostLog", 1)
-  self.qjs.JS_SetPropertyStr(self.ctx, global, "__hostLog", fn)
-  self.qjs.JS_FreeValue(self.ctx, global)
-end
-
--- ============================================================================
--- Host function: __hostMeasureText
--- Allows JS to query text dimensions using Love2D's font measurement APIs
--- ============================================================================
-
-function Bridge:_exposeHostMeasureText()
-  local selfRef = self
-  local cb = ffi.cast("JSCFunction", function(ctx, this_val, argc, argv)
+  -- __hostMeasureText: JS queries text dimensions using Love2D's font APIs
+  local measureCb = ffi.cast("HostCallback", function(ctx, argc, argv, ret)
     local zeroResult = { width = 0, height = 0 }
 
     if argc < 1 then
-      return luaToJSValue(ctx, selfRef.qjs, zeroResult)
+      ret[0] = luaToJSValue(ctx, qjs, zeroResult)
+      return
     end
 
-    if selfRef.useDirectFFI then
-      -- Direct FFI: argv[0] is a raw JS object
-      -- Do NOT free argv[0] -- it belongs to the JS caller
-      local pok, params = pcall(jsValueToLua, ctx, selfRef.qjs, argv[0])
-      if not pok or type(params) ~= "table" then
-        -- Fallback to JSON for input
-        print("[react-love] Direct FFI failed in __hostMeasureText input, falling back to JSON: " .. tostring(params))
-        local cstr = selfRef.qjs.JS_ToCString(ctx, argv[0])
-        if cstr == nil then
-          return luaToJSValue(ctx, selfRef.qjs, zeroResult)
-        end
-        local str = ffi.string(cstr)
-        selfRef.qjs.JS_FreeCString(ctx, cstr)
-        local jok, jparams = pcall(json.decode, str)
-        if not jok or type(jparams) ~= "table" then
-          return luaToJSValue(ctx, selfRef.qjs, zeroResult)
-        end
-        params = jparams
-      end
+    -- Direct FFI: argv[0] is a raw JS object
+    local pok, params = pcall(jsValueToLua, ctx, qjs, argv[0])
+    if not pok or type(params) ~= "table" then
+      print("[react-love] __hostMeasureText FFI traversal failed: " .. tostring(params))
+      ret[0] = luaToJSValue(ctx, qjs, zeroResult)
+      return
+    end
 
-      local text = params.text or ""
-      local fontSize = params.fontSize or 14
-      local maxWidth = params.maxWidth  -- nil means unconstrained
+    local text = params.text or ""
+    local fontSize = params.fontSize or 14
+    local maxWidth = params.maxWidth  -- nil means unconstrained
 
-      local result = Measure.measureText(text, fontSize, maxWidth)
-      local resultTbl = { width = result.width, height = result.height }
+    local result = Measure.measureText(text, fontSize, maxWidth)
+    local resultTbl = { width = result.width, height = result.height }
 
-      local rok, jsResult = pcall(luaToJSValue, ctx, selfRef.qjs, resultTbl)
-      if rok then
-        return jsResult
-      else
-        -- Fallback to JSON for output
-        print("[react-love] Direct FFI failed in __hostMeasureText output, falling back to JSON: " .. tostring(jsResult))
-        local resultJson = json.encode(resultTbl)
-        return selfRef.qjs.JS_NewString(ctx, resultJson)
-      end
+    local rok, jsResult = pcall(luaToJSValue, ctx, qjs, resultTbl)
+    if rok then
+      ret[0] = jsResult
     else
-      -- Legacy JSON path
-      local cstr = selfRef.qjs.JS_ToCString(ctx, argv[0])
-      if cstr == nil then
-        return selfRef.qjs.JS_NewString(ctx, '{"width":0,"height":0}')
-      end
-
-      local str = ffi.string(cstr)
-      selfRef.qjs.JS_FreeCString(ctx, cstr)
-
-      local ok, params = pcall(json.decode, str)
-      if not ok or type(params) ~= "table" then
-        return selfRef.qjs.JS_NewString(ctx, '{"width":0,"height":0}')
-      end
-
-      local text = params.text or ""
-      local fontSize = params.fontSize or 14
-      local maxWidth = params.maxWidth
-
-      local result = Measure.measureText(text, fontSize, maxWidth)
-      local resultJson = json.encode({ width = result.width, height = result.height })
-      return selfRef.qjs.JS_NewString(ctx, resultJson)
+      print("[react-love] __hostMeasureText FFI construction failed: " .. tostring(jsResult))
+      ret[0] = luaToJSValue(ctx, qjs, zeroResult)
     end
   end)
-  self._callbacks[#self._callbacks + 1] = cb
+  self._callbacks[#self._callbacks + 1] = measureCb
 
-  local global = self.qjs.JS_GetGlobalObject(self.ctx)
-  local fn = self.qjs.JS_NewCFunction(self.ctx, cb, "__hostMeasureText", 1)
-  self.qjs.JS_SetPropertyStr(self.ctx, global, "__hostMeasureText", fn)
-  self.qjs.JS_FreeValue(self.ctx, global)
+  -- Register callbacks in C shim, then register JS globals
+  qjs.qjs_set_host_flush(flushCb)
+  qjs.qjs_set_host_events(eventsCb)
+  qjs.qjs_set_host_log(logCb)
+  qjs.qjs_set_host_measure(measureCb)
+  qjs.qjs_register_host_functions(self.ctx)
 end
 
 -- ============================================================================
@@ -640,14 +572,47 @@ function Bridge:eval(code, filename)
   self.qjs.JS_FreeValue(self.ctx, val)
 end
 
+--- Call a global JS function by name, bypassing JS_Eval.
+--- This avoids whatever in JS_Eval prevents it from returning
+--- after a complex synchronous React render.
+function Bridge:callGlobal(name)
+  local qjs = self.qjs
+  local ctx = self.ctx
+  local global = qjs.JS_GetGlobalObject(ctx)
+  local fn = qjs.JS_GetPropertyStr(ctx, global, name)
+
+  if qjs.JS_IsUndefined(fn) ~= 0 then
+    qjs.JS_FreeValue(ctx, fn)
+    qjs.JS_FreeValue(ctx, global)
+    return
+  end
+
+  local result = qjs.JS_Call(ctx, fn, global, 0, nil)
+
+  if qjs.JS_IsException(result) ~= 0 then
+    local exc = qjs.JS_GetException(ctx)
+    local cstr = qjs.JS_ToCString(ctx, exc)
+    local msg = cstr ~= nil and ffi.string(cstr) or "unknown error"
+    if cstr ~= nil then qjs.JS_FreeCString(ctx, cstr) end
+    qjs.JS_FreeValue(ctx, exc)
+    qjs.JS_FreeValue(ctx, fn)
+    qjs.JS_FreeValue(ctx, global)
+    error("[QuickJS] " .. msg)
+  end
+
+  qjs.JS_FreeValue(ctx, result)
+  qjs.JS_FreeValue(ctx, fn)
+  qjs.JS_FreeValue(ctx, global)
+end
+
 --- Tick the JS event loop (promises, microtasks, timers)
 function Bridge:tick()
   -- Drain pending microtasks
   local ctx_ptr = ffi.new("JSContext*[1]")
   while self.qjs.JS_ExecutePendingJob(self.rt, ctx_ptr) > 0 do end
 
-  -- Tick polyfilled timers
-  pcall(function() self:eval("if (globalThis.__tickTimers) __tickTimers();") end)
+  -- Tick polyfilled timers (use callGlobal to avoid JS_Eval hang)
+  pcall(function() self:callGlobal("__tickTimers") end)
 end
 
 --- Drain the command buffer (called by Love2D each frame)

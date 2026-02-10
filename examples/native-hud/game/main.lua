@@ -9,8 +9,8 @@
   simulates some game state for the HUD to display.
 ]]
 
--- Add the project root to the require path so we can find lua/ modules
-package.path = package.path .. ";../../lua/?.lua;../../lua/?/init.lua"
+-- Add the project root to the require path so lua.* modules resolve
+package.path = package.path .. ";../../?.lua;../../?/init.lua"
 
 local ReactLove = require("lua.init")
 

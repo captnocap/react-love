@@ -10,15 +10,20 @@
  * For keyboard events: broadcasts to ALL registered handlers (global)
  */
 
-import type { NativeBridge } from './NativeBridge';
 import type { LoveEvent } from '../../shared/src/types';
 import { handlerRegistry } from './hostConfig';
 
+/** Any object with a subscribe method (NativeBridge, CanvasBridge, etc.) */
+interface Subscribable {
+  subscribe(type: string, fn: (payload: any) => void): () => void;
+}
+
 /**
  * Initialize event dispatching for a bridge.
- * Call this once when the NativeBridge is created.
+ * Call this once when the bridge is created.
+ * Accepts any object with a subscribe() method (NativeBridge, CanvasBridge, etc.)
  */
-export function initEventDispatching(bridge: NativeBridge): void {
+export function initEventDispatching(bridge: Subscribable): void {
   // ── Mouse events (bubbling) ──────────────────────────────
 
   bridge.subscribe('click', (event: LoveEvent) => {

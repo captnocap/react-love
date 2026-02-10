@@ -3,6 +3,7 @@ export { WebBridge, bridges } from './WebBridge';
 export type { EmscriptenModule } from './WebBridge';
 export { LoveInstance } from './LoveInstance';
 export type { LoveInstanceProps } from './LoveInstance';
+export { CanvasBridge } from './CanvasBridge';
 
 // Re-export everything from shared
 export {

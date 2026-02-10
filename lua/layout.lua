@@ -8,7 +8,7 @@
     - flexWrap: nowrap (default), wrap
     - flexGrow, flexBasis
     - justifyContent: start, center, end, space-between, space-around, space-evenly
-    - alignItems: start, center, end, stretch
+    - alignItems: stretch (default), start, center, end
     - alignSelf: auto, start, center, end, stretch (per-child override)
     - padding (all sides + per-side)
     - margin (all sides + per-side)
@@ -267,6 +267,12 @@ function Layout.layoutNode(node, px, py, pw, ph)
   local explicitH = ru(s.height, ph)
   local w = explicitW or pw or 0
   local h = explicitH
+  -- Flex-stretch: if parent assigned a cross-axis dimension, use it
+  -- so innerH is correct for children and auto-sizing doesn't override it.
+  if h == nil and node._stretchH then
+    h = node._stretchH
+  end
+  node._stretchH = nil
 
   -- Resolve padding early so text measurement can use inner width.
   -- We use the outer width for percentage-based padding resolution.
@@ -341,7 +347,7 @@ function Layout.layoutNode(node, px, py, pw, ph)
   local isRow   = s.flexDirection == "row"
   local gap     = ru(s.gap, isRow and innerW or innerH) or 0
   local justify = s.justifyContent or "start"
-  local align   = s.alignItems or "start"
+  local align   = s.alignItems or "stretch"
   local wrap    = s.flexWrap == "wrap"
 
   local mainSize  = isRow and innerW or innerH
@@ -671,7 +677,9 @@ function Layout.layoutNode(node, px, py, pw, ph)
           cy = y + padT + crossCursor + ci.marT + crossAvail - ch_final
         elseif childAlign == "stretch" then
           cy = y + padT + crossCursor + ci.marT
-          ch_final = clampDim(crossAvail, ci.minH, ci.maxH)
+          if ci.explicitH == nil then
+            ch_final = clampDim(crossAvail, ci.minH, ci.maxH)
+          end
         else  -- "start" or default
           cy = y + padT + crossCursor + ci.marT
         end
@@ -699,21 +707,35 @@ function Layout.layoutNode(node, px, py, pw, ph)
         end
       end
 
+      -- Signal stretched cross-axis to child so its layoutNode uses it
+      if childAlign == "stretch" and isRow and ci.explicitH == nil then
+        child._stretchH = ch_final
+      end
+
       child.computed = { x = cx, y = cy, w = cw_final, h = ch_final }
       Layout.layoutNode(child, cx, cy, cw_final, ch_final)
 
+      -- Use actual computed size after layout (handles auto-sized containers
+      -- whose basis was 0 because content size wasn't known pre-layout)
+      local actualMainSize
+      if isRow then
+        actualMainSize = child.computed and child.computed.w or ci.basis
+      else
+        actualMainSize = child.computed and child.computed.h or ci.basis
+      end
+
       -- Advance cursor past the child's content + trailing margin + gap
-      cursor = cursor + ci.basis + ci.mainMarginEnd + gap + lineExtraGap
+      cursor = cursor + actualMainSize + ci.mainMarginEnd + gap + lineExtraGap
 
       -- Track content extents for auto-sizing
       if isRow then
-        local mainEnd = (cx - x) + cw_final + ci.marR
-        local crossEnd = crossCursor + (ci.h or ch_final) + ci.marT + ci.marB
+        local mainEnd = (cx - x) + (child.computed and child.computed.w or cw_final) + ci.marR
+        local crossEnd = crossCursor + (child.computed and child.computed.h or ch_final) + ci.marT + ci.marB
         if mainEnd > contentMainEnd then contentMainEnd = mainEnd end
         if crossEnd > contentCrossEnd then contentCrossEnd = crossEnd end
       else
-        local mainEnd = (cy - y) + ch_final + ci.marB
-        local crossEnd = crossCursor + (ci.w or cw_final) + ci.marL + ci.marR
+        local mainEnd = (cy - y) + (child.computed and child.computed.h or ch_final) + ci.marB
+        local crossEnd = crossCursor + (child.computed and child.computed.w or cw_final) + ci.marL + ci.marR
         if mainEnd > contentMainEnd then contentMainEnd = mainEnd end
         if crossEnd > contentCrossEnd then contentCrossEnd = crossEnd end
       end

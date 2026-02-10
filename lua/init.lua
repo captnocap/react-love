@@ -23,8 +23,13 @@ local painter  = nil   -- painter.lua module
 local events   = nil   -- events.lua module
 local measure  = nil   -- measure.lua module (text measurement + font cache)
 
-local mode     = nil   -- "web" or "native"
+local mode     = nil   -- "web", "native", or "canvas"
 local basePath = nil   -- directory containing these modules
+
+-- Helper: does the current mode run the rendering pipeline?
+local function isRendering()
+  return mode == "native" or mode == "canvas"
+end
 
 -- ============================================================================
 -- Mode detection
@@ -69,9 +74,19 @@ end
 -- Public API
 -- ============================================================================
 
+--- Push an event to the bridge (handles mode differences).
+--- In native mode bridge:pushEvent() is used; in canvas mode bridge.emit() is used.
+local function pushEvent(evt)
+  if mode == "native" then
+    bridge:pushEvent(evt)
+  elseif mode == "canvas" then
+    bridge.emit(evt.type, evt)
+  end
+end
+
 --- Initialize react-love.
 --- config fields:
----   mode       : "auto" | "web" | "native"  (default "auto")
+---   mode       : "auto" | "web" | "native" | "canvas"  (default "auto")
 ---   bundlePath : path to the JS bundle       (default "bundle.js")
 ---   namespace  : bridge namespace string     (default "default")
 ---   libpath    : path to libquickjs shared library (default "lib/libquickjs")
@@ -88,6 +103,24 @@ function ReactLove.init(config)
     bridge = require("lua.bridge_fs")
     bridge.init(ns)
     print("[react-love] Initialized in WEB mode (Module.FS bridge)")
+
+  elseif mode == "canvas" then
+    -- Canvas mode: FS bridge + native rendering pipeline.
+    -- React runs in the browser, reconciler commands come via /__reconciler_in.json,
+    -- and Lua handles tree/layout/painter. Events go back via bridge_fs outbox.
+    bridge = require("lua.bridge_fs")
+    bridge.init(ns)
+
+    tree    = require("lua.tree")
+    measure = require("lua.measure")
+    layout  = require("lua.layout")
+    painter = require("lua.painter")
+    events  = require("lua.events")
+
+    events.setTreeModule(tree)
+    tree.init()
+
+    print("[react-love] Initialized in CANVAS mode (Module.FS bridge + native rendering)")
 
   else
     -- Native mode: use QuickJS bridge + retained tree + layout + painter.
@@ -109,7 +142,18 @@ function ReactLove.init(config)
     if not bundleJS then
       error("[react-love] " .. bundlePath .. " not found -- run `npm run build` first")
     end
+
+    -- Tell the bundle to defer root.render() so JS_Eval returns immediately.
+    -- React's synchronous LegacyRoot render would otherwise block inside JS_Eval.
+    bridge:eval("globalThis.__deferMount = true;", "<pre-bundle>")
+
+    print("[react-love] Evaluating bundle (" .. #bundleJS .. " bytes)...")
     bridge:eval(bundleJS, bundlePath)
+    print("[react-love] Bundle loaded OK")
+
+    -- Don't mount yet — that happens in the first update() call so the
+    -- Love2D event loop is running and we can tick timers between frames.
+    ReactLove._needsMount = true
 
     print("[react-love] Initialized in NATIVE mode (QuickJS bridge)")
   end
@@ -125,13 +169,59 @@ function ReactLove.update(dt)
     return
   end
 
+  if mode == "canvas" then
+    -- Canvas mode: FS bridge + native rendering pipeline ----------------
+
+    -- 1. Poll the standard bridge inbox for user/state commands
+    bridge.poll()
+
+    -- 2. Poll the dedicated reconciler command inbox (/__reconciler_in.json)
+    local reconPath = "__reconciler_in.json"
+    if love.filesystem.getInfo(reconPath) then
+      local raw = love.filesystem.read(reconPath)
+      love.filesystem.remove(reconPath)
+      if raw and raw ~= "" then
+        local json = require("lib.json")
+        local ok, commands = pcall(json.decode, raw)
+        if ok and type(commands) == "table" then
+          tree.applyCommands(commands)
+        end
+      end
+    end
+
+    -- 3. Relayout if tree changed
+    if tree.isDirty() then
+      local root = tree.getTree()
+      if root then
+        layout.layout(root)
+      end
+      tree.clearDirty()
+    end
+
+    -- 4. Flush bridge outbox (events back to JS)
+    bridge.flush()
+    return
+  end
+
   -- Native mode -----------------------------------------------------------
+
+  -- Deferred mount: trigger root.render() on the first update so the
+  -- Love2D event loop is already running. Uses callGlobal (JS_Call)
+  -- instead of eval because JS_Eval hangs after complex React renders.
+  if ReactLove._needsMount then
+    ReactLove._needsMount = nil
+    io.write("[react-love] Triggering deferred mount...\n"); io.flush()
+    bridge:callGlobal("__mount")
+    io.write("[react-love] Mount call returned\n"); io.flush()
+    -- Tick immediately to drain any scheduled microtasks/timers
+    bridge:tick()
+  end
 
   -- 1. Tick JS timers + microtasks
   bridge:tick()
 
   -- 2. Tell JS to process any pending input events
-  bridge:eval("if (globalThis._pollAndDispatchEvents) _pollAndDispatchEvents();")
+  bridge:callGlobal("_pollAndDispatchEvents")
 
   -- 3. Tick again (event handlers may have triggered state updates)
   bridge:tick()
@@ -139,6 +229,10 @@ function ReactLove.update(dt)
   -- 4. Drain mutation commands from JS and apply to retained tree
   local commands = bridge:drainCommands()
   if #commands > 0 then
+    if not ReactLove._loggedCommands then
+      ReactLove._loggedCommands = true
+      io.write("[react-love] First batch: " .. #commands .. " commands\n"); io.flush()
+    end
     tree.applyCommands(commands)
   end
 
@@ -153,12 +247,30 @@ function ReactLove.update(dt)
 end
 
 --- Call once per frame from love.draw().
---- Paints the retained UI tree (native mode only).
+--- Paints the retained UI tree (native and canvas modes).
 function ReactLove.draw()
-  if mode ~= "native" then return end
+  if not isRendering() then return end
 
   local root = tree.getTree()
   if root then
+    if not ReactLove._loggedDraw then
+      ReactLove._loggedDraw = true
+      local c = root.computed
+      local w = c and c.w or "nil"
+      local h = c and c.h or "nil"
+      local nc = root.children and #root.children or 0
+      io.write("[react-love] draw: root " .. w .. "x" .. h .. " children=" .. nc .. "\n"); io.flush()
+      if root.children then
+        for i = 1, math.min(3, #root.children) do
+          local ch = root.children[i]
+          local cc = ch.computed
+          local cw = cc and cc.w or "nil"
+          local chh = cc and cc.h or "nil"
+          local bg = ch.style and ch.style.backgroundColor or "nil"
+          io.write("  child[" .. i .. "] type=" .. tostring(ch.type) .. " " .. tostring(cw) .. "x" .. tostring(chh) .. " bg=" .. tostring(bg) .. "\n"); io.flush()
+        end
+      end
+    end
     painter.paint(root)
   end
 end
@@ -167,7 +279,7 @@ end
 --- Hit-tests the tree and dispatches a click event to JS.
 --- Also starts tracking for potential drag operations.
 function ReactLove.mousepressed(x, y, button)
-  if mode ~= "native" then return end
+  if not isRendering() then return end
 
   local root = tree.getTree()
   if not root then return end
@@ -180,14 +292,14 @@ function ReactLove.mousepressed(x, y, button)
 
     -- Fire click event with bubblePath
     local bubblePath = events.buildBubblePath(hit)
-    bridge:pushEvent(events.createEvent("click", hit.id, x, y, button, bubblePath))
+    pushEvent(events.createEvent("click", hit.id, x, y, button, bubblePath))
   end
 end
 
 --- Call from love.mousereleased(x, y, button).
 --- Ends any active drag operation and dispatches release event.
 function ReactLove.mousereleased(x, y, button)
-  if mode ~= "native" then return end
+  if not isRendering() then return end
 
   local root = tree.getTree()
   if not root then return end
@@ -195,14 +307,14 @@ function ReactLove.mousereleased(x, y, button)
   -- End drag if active
   local dragEndEvent = events.endDrag(x, y)
   if dragEndEvent then
-    bridge:pushEvent(dragEndEvent)
+    pushEvent(dragEndEvent)
   end
 
   -- Dispatch normal release event with bubblePath
   local hit = events.hitTest(root, x, y)
   if hit then
     local bubblePath = events.buildBubblePath(hit)
-    bridge:pushEvent(events.createEvent("release", hit.id, x, y, button, bubblePath))
+    pushEvent(events.createEvent("release", hit.id, x, y, button, bubblePath))
   end
 end
 
@@ -210,7 +322,7 @@ end
 --- Tracks pointer enter/leave and dispatches hover events.
 --- Also updates drag state if a drag is active.
 function ReactLove.mousemoved(x, y)
-  if mode ~= "native" then return end
+  if not isRendering() then return end
 
   local root = tree.getTree()
   if not root then return end
@@ -220,7 +332,7 @@ function ReactLove.mousemoved(x, y)
     local dragEvents = events.updateDrag(x, y)
     if dragEvents then
       for _, evt in ipairs(dragEvents) do
-        bridge:pushEvent(evt)
+        pushEvent(evt)
       end
     end
 
@@ -233,14 +345,14 @@ function ReactLove.mousemoved(x, y)
   -- Normal hover tracking when not dragging
   local hoverEvents = events.updateHover(root, x, y)
   for _, evt in ipairs(hoverEvents) do
-    bridge:pushEvent(evt)
+    pushEvent(evt)
   end
 end
 
 --- Call from love.resize(w, h).
 --- Marks the tree dirty so layout is recomputed next frame.
 function ReactLove.resize(w, h)
-  if mode ~= "native" then return end
+  if not isRendering() then return end
   if measure then
     measure.clearCache()
   end
@@ -252,28 +364,28 @@ end
 --- Call from love.keypressed(key, scancode, isrepeat).
 --- Dispatches a global keydown event to all JS keyboard listeners.
 function ReactLove.keypressed(key, scancode, isrepeat)
-  if mode ~= "native" then return end
+  if not isRendering() then return end
   if not bridge then return end
 
-  bridge:pushEvent(events.createKeyEvent("keydown", key, scancode, isrepeat))
+  pushEvent(events.createKeyEvent("keydown", key, scancode, isrepeat))
 end
 
 --- Call from love.keyreleased(key, scancode).
 --- Dispatches a global keyup event to all JS keyboard listeners.
 function ReactLove.keyreleased(key, scancode)
-  if mode ~= "native" then return end
+  if not isRendering() then return end
   if not bridge then return end
 
-  bridge:pushEvent(events.createKeyEvent("keyup", key, scancode, false))
+  pushEvent(events.createKeyEvent("keyup", key, scancode, false))
 end
 
 --- Call from love.textinput(text).
 --- Dispatches a text input event (handles unicode, IME, etc.).
 function ReactLove.textinput(text)
-  if mode ~= "native" then return end
+  if not isRendering() then return end
   if not bridge then return end
 
-  bridge:pushEvent(events.createTextInputEvent(text))
+  pushEvent(events.createTextInputEvent(text))
 end
 
 --- Call from love.wheelmoved(x, y).
@@ -281,7 +393,7 @@ end
 --- directly in Lua for immediate visual response AND send the event to JS.
 --- The scroll speed multiplier converts Love2D wheel units to pixels.
 function ReactLove.wheelmoved(x, y)
-  if mode ~= "native" then return end
+  if not isRendering() then return end
 
   local root = tree.getTree()
   if not root then return end
@@ -305,13 +417,13 @@ function ReactLove.wheelmoved(x, y)
 
   -- Always send the wheel event to JS regardless of scroll handling
   local bubblePath = events.buildBubblePath(hit)
-  bridge:pushEvent(events.createWheelEvent(hit.id, mx, my, x, y, bubblePath))
+  pushEvent(events.createWheelEvent(hit.id, mx, my, x, y, bubblePath))
 end
 
 --- Call from love.touchpressed(id, x, y, dx, dy, pressure).
 --- Dispatches a touchstart event to the node under the touch point.
 function ReactLove.touchpressed(id, x, y, dx, dy, pressure)
-  if mode ~= "native" then return end
+  if not isRendering() then return end
 
   local root = tree.getTree()
   if not root then return end
@@ -319,14 +431,14 @@ function ReactLove.touchpressed(id, x, y, dx, dy, pressure)
   local hit = events.hitTest(root, x, y)
   if hit then
     local bubblePath = events.buildBubblePath(hit)
-    bridge:pushEvent(events.createTouchEvent("touchstart", hit.id, id, x, y, dx, dy, pressure, bubblePath))
+    pushEvent(events.createTouchEvent("touchstart", hit.id, id, x, y, dx, dy, pressure, bubblePath))
   end
 end
 
 --- Call from love.touchreleased(id, x, y, dx, dy, pressure).
 --- Dispatches a touchend event to the node under the touch point.
 function ReactLove.touchreleased(id, x, y, dx, dy, pressure)
-  if mode ~= "native" then return end
+  if not isRendering() then return end
 
   local root = tree.getTree()
   if not root then return end
@@ -334,47 +446,47 @@ function ReactLove.touchreleased(id, x, y, dx, dy, pressure)
   local hit = events.hitTest(root, x, y)
   if hit then
     local bubblePath = events.buildBubblePath(hit)
-    bridge:pushEvent(events.createTouchEvent("touchend", hit.id, id, x, y, dx, dy, pressure, bubblePath))
+    pushEvent(events.createTouchEvent("touchend", hit.id, id, x, y, dx, dy, pressure, bubblePath))
   end
 end
 
 --- Call from love.touchmoved(id, x, y, dx, dy, pressure).
 --- Dispatches a touchmove event (broadcast globally, finger may have moved off element).
 function ReactLove.touchmoved(id, x, y, dx, dy, pressure)
-  if mode ~= "native" then return end
+  if not isRendering() then return end
   if not bridge then return end
 
-  bridge:pushEvent(events.createTouchEvent("touchmove", nil, id, x, y, dx, dy, pressure))
+  pushEvent(events.createTouchEvent("touchmove", nil, id, x, y, dx, dy, pressure))
 end
 
 --- Call from love.gamepadpressed(joystick, button).
 --- Dispatches a global gamepad button press event.
 function ReactLove.gamepadpressed(joystick, button)
-  if mode ~= "native" then return end
+  if not isRendering() then return end
   if not bridge then return end
 
   local joystickId = joystick:getID()
-  bridge:pushEvent(events.createGamepadButtonEvent("gamepadpressed", button, joystickId))
+  pushEvent(events.createGamepadButtonEvent("gamepadpressed", button, joystickId))
 end
 
 --- Call from love.gamepadreleased(joystick, button).
 --- Dispatches a global gamepad button release event.
 function ReactLove.gamepadreleased(joystick, button)
-  if mode ~= "native" then return end
+  if not isRendering() then return end
   if not bridge then return end
 
   local joystickId = joystick:getID()
-  bridge:pushEvent(events.createGamepadButtonEvent("gamepadreleased", button, joystickId))
+  pushEvent(events.createGamepadButtonEvent("gamepadreleased", button, joystickId))
 end
 
 --- Call from love.gamepadaxis(joystick, axis, value).
 --- Dispatches a global gamepad axis movement event.
 function ReactLove.gamepadaxis(joystick, axis, value)
-  if mode ~= "native" then return end
+  if not isRendering() then return end
   if not bridge then return end
 
   local joystickId = joystick:getID()
-  bridge:pushEvent(events.createGamepadAxisEvent(axis, value, joystickId))
+  pushEvent(events.createGamepadAxisEvent(axis, value, joystickId))
 end
 
 --- Call from love.quit().
@@ -383,6 +495,7 @@ function ReactLove.quit()
   if mode == "native" and bridge then
     bridge:destroy()
   end
+  -- canvas mode uses bridge_fs which has no destroy method
   bridge = nil
 end
 
@@ -392,17 +505,17 @@ function ReactLove.getBridge()
   return bridge
 end
 
---- Return the current mode ("web" or "native").
+--- Return the current mode ("web", "native", or "canvas").
 function ReactLove.getMode()
   return mode
 end
 
---- Return the tree module (native mode only).
+--- Return the tree module (native/canvas mode only).
 function ReactLove.getTree()
   return tree
 end
 
---- Return the measure module (native mode only).
+--- Return the measure module (native/canvas mode only).
 --- Useful for game code that needs to measure text outside the layout pass.
 function ReactLove.getMeasure()
   return measure
@@ -413,7 +526,7 @@ end
 --- @param scrollX number Desired horizontal scroll position in pixels
 --- @param scrollY number Desired vertical scroll position in pixels
 function ReactLove.setScroll(nodeId, scrollX, scrollY)
-  if mode ~= "native" then return end
+  if not isRendering() then return end
   if not tree then return end
   tree.setScroll(nodeId, scrollX or 0, scrollY or 0)
 end
