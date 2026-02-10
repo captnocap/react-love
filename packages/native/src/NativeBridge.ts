@@ -11,6 +11,7 @@
 import type { IBridge, Listener, Unsubscribe, BridgeEvent } from '../../shared/src/bridge';
 import { initEventDispatching } from './eventDispatcher';
 import { reportError } from './errorReporter';
+import { setTransportFlush } from './hostConfig';
 
 declare const globalThis: {
   __hostFlush: (commands: any[]) => void;
@@ -33,6 +34,9 @@ export class NativeBridge implements IBridge {
   private readyCallbacks: Array<() => void> = [];
 
   constructor() {
+    // Register this transport's flush handler with the reconciler
+    setTransportFlush((commands) => globalThis.__hostFlush(commands));
+
     // Expose the event polling function globally so Lua can call it each frame
     globalThis._pollAndDispatchEvents = () => this.pollAndDispatchEvents();
 

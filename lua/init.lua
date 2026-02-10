@@ -156,14 +156,20 @@ function ReactLove.init(config)
     bridge = require("lua.bridge_fs")
     bridge.init(ns)
 
-    tree    = require("lua.tree")
     measure = require("lua.measure")
-    layout  = require("lua.layout")
-    painter = require("lua.painter")
-    events  = require("lua.events")
+    images  = require("lua.images")
 
+    tree    = require("lua.tree")
+    tree.init({ images = images })
+
+    layout  = require("lua.layout")
+    layout.init({ measure = measure })
+
+    painter = require("lua.painter")
+    painter.init({ measure = measure, images = images })
+
+    events  = require("lua.events")
     events.setTreeModule(tree)
-    tree.init()
 
     print("[react-love] Initialized in CANVAS mode (Module.FS bridge + native rendering)")
 
@@ -177,15 +183,20 @@ function ReactLove.init(config)
     local BridgeQJS = require("lua.bridge_quickjs")
     bridge = BridgeQJS.new(initConfig.libpath)
 
-    tree    = require("lua.tree")
     measure = require("lua.measure")
-    layout  = require("lua.layout")
-    painter = require("lua.painter")
-    events  = require("lua.events")
     images  = require("lua.images")
 
+    tree    = require("lua.tree")
+    tree.init({ images = images })
+
+    layout  = require("lua.layout")
+    layout.init({ measure = measure })
+
+    painter = require("lua.painter")
+    painter.init({ measure = measure, images = images })
+
+    events  = require("lua.events")
     events.setTreeModule(tree)
-    tree.init()
 
     -- Load the bundled React app into QuickJS
     local bundleJS = love.filesystem.read(initConfig.bundlePath)
@@ -597,8 +608,8 @@ function ReactLove.reload()
 
   -- 2. Teardown
   bridge:destroy()
-  tree.init()
   if images then images.clearCache() end
+  tree.init({ images = images })
   events.clearHover()
   pcall(function() events.endDrag(0, 0) end)
   measure.clearCache()

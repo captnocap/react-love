@@ -1,5 +1,5 @@
 {
-  "name": "react-love",
+  "name": "ilovereact",
   "version": "0.1.0",
   "description": "Write React components once, render in Love2D — DOM overlays (web) or draw commands (native)",
   "private": true,

@@ -23,9 +23,17 @@
     - lineHeight, letterSpacing, numberOfLines text properties
 ]]
 
-local Measure = require("lua.measure")
+local Measure = nil  -- Injected at init time via Layout.init()
 
 local Layout = {}
+
+--- Initialize the layout engine with target-specific dependencies.
+--- Must be called before any layout operations.
+--- @param config table  { measure = MeasureModule }
+function Layout.init(config)
+  config = config or {}
+  Measure = config.measure
+end
 
 -- ============================================================================
 -- Unit resolution

@@ -42,6 +42,20 @@ declare const globalThis: {
   [key: string]: any;
 };
 
+// ── Transport abstraction ────────────────────────────────
+
+/** Injected flush handler — decouples the reconciler from a specific transport. */
+let transportFlush: ((commands: Command[]) => void) | null = null;
+
+/**
+ * Register the transport flush handler.
+ * Called by the bridge implementation (NativeBridge, WebSocketBridge, etc.)
+ * to tell the reconciler how to deliver commands.
+ */
+export function setTransportFlush(fn: (commands: Command[]) => void): void {
+  transportFlush = fn;
+}
+
 // ── State ────────────────────────────────────────────────
 
 let nodeIdCounter = 0;
@@ -102,9 +116,19 @@ function coalesceCommands(commands: Command[]): Command[] {
 
 export function flushToHost(): void {
   if (pendingCommands.length === 0) return;
+
+  // Resolve transport on first flush (backwards compat: fall back to global)
+  if (!transportFlush) {
+    if (typeof globalThis.__hostFlush === 'function') {
+      transportFlush = (cmds) => globalThis.__hostFlush(cmds);
+    } else {
+      return;
+    }
+  }
+
   const coalesced = coalesceCommands(pendingCommands);
   try {
-    globalThis.__hostFlush(coalesced);
+    transportFlush(coalesced);
   } catch (e) {
     reportError(e, 'flushToHost (' + coalesced.length + ' commands)');
   }

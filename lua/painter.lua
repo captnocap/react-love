@@ -22,14 +22,24 @@
     - Transforms: translate, rotate, scale with transform origin
 ]]
 
-local Measure = require("lua.measure")
-local Images = require("lua.images")
+local Measure = nil  -- Injected at init time via Painter.init()
+local Images = nil   -- Injected at init time via Painter.init()
 local ZIndex = require("lua.zindex")
 
 local Painter = {}
 
--- Use the shared font cache from measure.lua
-local getFont = Measure.getFont
+-- Set during Painter.init() from the injected measure module
+local getFont = nil
+
+--- Initialize the painter with target-specific dependencies.
+--- Must be called before any paint operations.
+--- @param config table  { measure = MeasureModule, images = ImagesModule }
+function Painter.init(config)
+  config = config or {}
+  Measure = config.measure
+  Images = config.images
+  getFont = Measure.getFont
+end
 
 -- ============================================================================
 -- Color helpers

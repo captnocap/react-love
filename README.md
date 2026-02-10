@@ -99,7 +99,7 @@ Lua-side modules for both web and native targets.
 ### Primitives
 
 ```tsx
-import { Box, Text, Image } from '@react-love/shared';
+import { Box, Text, Image } from '@ilovereact/core';
 
 <Box style={{ flexDirection: 'row', gap: 8, padding: 16 }}>
   <Image src="avatar.png" style={{ width: 48, height: 48, borderRadius: 24 }} />
@@ -110,7 +110,7 @@ import { Box, Text, Image } from '@react-love/shared';
 ### ScrollView
 
 ```tsx
-import { ScrollView } from '@react-love/shared';
+import { ScrollView } from '@ilovereact/core';
 
 const ref = useRef<ScrollViewRef>(null);
 
@@ -125,7 +125,7 @@ ref.current?.scrollTo({ y: 0, animated: true });
 ### TextInput
 
 ```tsx
-import { TextInput } from '@react-love/shared';
+import { TextInput } from '@ilovereact/core';
 
 <TextInput
   value={text}
@@ -140,7 +140,7 @@ Supports: controlled/uncontrolled, `secureTextEntry`, `multiline`, `maxLength`, 
 ### Pressable
 
 ```tsx
-import { Pressable } from '@react-love/shared';
+import { Pressable } from '@ilovereact/core';
 
 <Pressable
   onPress={() => console.log('pressed')}
@@ -158,7 +158,7 @@ import { Pressable } from '@react-love/shared';
 ### Modal
 
 ```tsx
-import { Modal } from '@react-love/shared';
+import { Modal } from '@ilovereact/core';
 
 <Modal
   visible={showModal}
@@ -175,7 +175,7 @@ import { Modal } from '@react-love/shared';
 ### FlatList
 
 ```tsx
-import { FlatList } from '@react-love/shared';
+import { FlatList } from '@ilovereact/core';
 
 <FlatList
   data={items}
@@ -192,7 +192,7 @@ Supports: virtualized windowed rendering, `numColumns` grid, `inverted`, `initia
 ### Slider
 
 ```tsx
-import { Slider } from '@react-love/shared';
+import { Slider } from '@ilovereact/core';
 
 <Slider
   value={volume}
@@ -206,7 +206,7 @@ import { Slider } from '@react-love/shared';
 ### Switch
 
 ```tsx
-import { Switch } from '@react-love/shared';
+import { Switch } from '@ilovereact/core';
 
 <Switch value={enabled} onValueChange={setEnabled} />
 ```
@@ -214,7 +214,7 @@ import { Switch } from '@react-love/shared';
 ### Checkbox
 
 ```tsx
-import { Checkbox } from '@react-love/shared';
+import { Checkbox } from '@ilovereact/core';
 
 <Checkbox
   value={accepted}
@@ -230,7 +230,7 @@ Supports: controlled/uncontrolled, `label`, `size`, `color`, `uncheckedColor`, `
 ### Radio / RadioGroup
 
 ```tsx
-import { Radio, RadioGroup } from '@react-love/shared';
+import { Radio, RadioGroup } from '@ilovereact/core';
 
 <RadioGroup value={selected} onValueChange={setSelected}>
   <Radio value="small" label="Small" />
@@ -244,7 +244,7 @@ import { Radio, RadioGroup } from '@react-love/shared';
 ### Select
 
 ```tsx
-import { Select } from '@react-love/shared';
+import { Select } from '@ilovereact/core';
 
 <Select
   value={theme}
@@ -265,7 +265,7 @@ Supports: controlled/uncontrolled, `placeholder`, `disabled`, `color`.
 ## Animation
 
 ```tsx
-import { useAnimation, useSpring, Easing, parallel, sequence } from '@react-love/shared';
+import { useAnimation, useSpring, Easing, parallel, sequence } from '@ilovereact/core';
 
 // Timing animation
 const opacity = useAnimation({ from: 0, to: 1, duration: 300, easing: Easing.easeOut });
@@ -350,7 +350,7 @@ Colors: CSS strings (`'#ff0000'`, `'rgba(0,0,0,0.5)'`) or Love2D arrays (`[1, 0,
 ### Writing components
 
 ```tsx
-import { Box, Text, useLoveState, useLoveSend } from '@react-love/shared';
+import { Box, Text, useLoveState, useLoveSend } from '@ilovereact/core';
 
 function HealthBar() {
   const [health] = useLoveState('health', 100);
@@ -381,7 +381,7 @@ This component renders as DOM elements in web mode and as Love2D draw calls in n
 ### Web target
 
 ```tsx
-import { LoveInstance } from '@react-love/web';
+import { LoveInstance } from '@ilovereact/web';
 
 function App() {
   return (
@@ -395,8 +395,8 @@ function App() {
 ### Native target
 
 ```tsx
-import { NativeBridge, createRoot } from '@react-love/native';
-import { BridgeProvider, RendererProvider } from '@react-love/shared';
+import { NativeBridge, createRoot } from '@ilovereact/native';
+import { BridgeProvider, RendererProvider } from '@ilovereact/core';
 
 const bridge = new NativeBridge();
 const root = createRoot(bridge);

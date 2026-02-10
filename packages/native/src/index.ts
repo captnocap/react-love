@@ -10,6 +10,7 @@ export {
   handlerRegistry,
   extractHandlers,
   flushToHost,
+  setTransportFlush,
   shallowEqual,
   type Instance,
   type TextInstance,
@@ -55,4 +56,4 @@ export {
   Image,
   styleToCSS,
   colorToCSS,
-} from '@react-love/shared';
+} from '@ilovereact/core';

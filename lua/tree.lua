@@ -8,7 +8,7 @@
   The layout engine and painter operate on this tree.
 ]]
 
-local Images = require("lua.images")
+local Images = nil  -- Injected at init time via Tree.init()
 
 local Tree = {}
 
@@ -29,7 +29,7 @@ local function cleanup(id)
   local n = nodes[id]
   if n then
     -- Unload image if this is an Image node
-    if n.type == "Image" and n.props and n.props.src then
+    if Images and n.type == "Image" and n.props and n.props.src then
       Images.unload(n.props.src)
     end
 
@@ -45,8 +45,12 @@ end
 -- Public API
 -- ============================================================================
 
---- Reset tree state. Call once at startup.
-function Tree.init()
+--- Initialize tree state with target-specific dependencies.
+--- Call once at startup.
+--- @param config table|nil  { images = ImagesModule } (images may be nil for targets without image support)
+function Tree.init(config)
+  config = config or {}
+  Images = config.images
   nodes = {}
   rootChildren = {}
   treeDirty = true
@@ -71,7 +75,7 @@ function Tree.applyCommands(commands)
         computed = nil,
       }
       -- Pre-load image and establish ref count
-      if cmd.type == "Image" and props.src then
+      if Images and cmd.type == "Image" and props.src then
         Images.load(props.src)
       end
       treeDirty = true
@@ -108,7 +112,7 @@ function Tree.applyCommands(commands)
       local node = nodes[cmd.id]
       if node and cmd.props then
         -- Handle image src changes: unload old, load new
-        if node.type == "Image" and cmd.props.src and cmd.props.src ~= node.props.src then
+        if Images and node.type == "Image" and cmd.props.src and cmd.props.src ~= node.props.src then
           if node.props.src then Images.unload(node.props.src) end
           Images.load(cmd.props.src)
         end

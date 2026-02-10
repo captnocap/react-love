@@ -11,9 +11,9 @@
     "declarationMap": true,
     "sourceMap": true,
     "paths": {
-      "@react-love/shared": ["./packages/shared/src"],
-      "@react-love/web": ["./packages/web/src"],
-      "@react-love/native": ["./packages/native/src"]
+      "@ilovereact/core": ["./packages/shared/src"],
+      "@ilovereact/web": ["./packages/web/src"],
+      "@ilovereact/native": ["./packages/native/src"]
     }
   }
 }
