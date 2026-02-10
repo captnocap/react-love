@@ -1,0 +1,27 @@
+{
+  "name": "react-love",
+  "version": "0.1.0",
+  "description": "Write React components once, render in Love2D — DOM overlays (web) or draw commands (native)",
+  "private": true,
+  "workspaces": [
+    "packages/shared",
+    "packages/web",
+    "packages/native"
+  ],
+  "scripts": {
+    "build:native": "esbuild --bundle --format=iife --global-name=ReactLove --target=es2020 --jsx=automatic --outfile=examples/native-hud/game/bundle.js examples/native-hud/src/main.tsx",
+    "watch:native": "esbuild --bundle --format=iife --global-name=ReactLove --target=es2020 --jsx=automatic --outfile=examples/native-hud/game/bundle.js --watch examples/native-hud/src/main.tsx",
+    "build:web": "esbuild --bundle --format=esm --target=es2020 --jsx=automatic --outfile=examples/web-overlay/dist/app.js examples/web-overlay/src/main.tsx"
+  },
+  "dependencies": {
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "react-reconciler": "^0.29.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.5.0"
+  }
+}

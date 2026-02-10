@@ -1,0 +1,24 @@
+node_modules/
+dist/
+*.love
+bundle.js
+
+# Build output
+examples/demo/dist/
+examples/web-overlay/dist/
+examples/native-hud/game/bundle.js
+
+# QuickJS build artifacts
+libquickjs/
+quickjs/
+*.so
+*.dylib
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.swp
+*.swo

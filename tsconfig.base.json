@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "paths": {
+      "@react-love/shared": ["./packages/shared/src"],
+      "@react-love/web": ["./packages/web/src"],
+      "@react-love/native": ["./packages/native/src"]
+    }
+  }
+}
