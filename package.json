@@ -11,7 +11,8 @@
     "packages/cc",
     "packages/nvim",
     "packages/hs",
-    "packages/awesome"
+    "packages/awesome",
+    "packages/terminal"
   ],
   "scripts": {
     "build:native": "esbuild --bundle --format=iife --global-name=ReactLove --target=es2020 --jsx=automatic --outfile=examples/native-hud/game/bundle.js examples/native-hud/src/main.tsx",
@@ -24,7 +25,8 @@
     "build:cc-demo": "esbuild --bundle --platform=node --format=esm --target=es2020 --jsx=automatic --outfile=examples/cc-demo/dist/main.js --external:ws examples/cc-demo/src/main.tsx",
     "build:nvim-demo": "esbuild --bundle --platform=node --format=esm --target=es2020 --jsx=automatic --outfile=examples/nvim-demo/dist/main.js examples/nvim-demo/src/main.tsx",
     "build:hs-demo": "esbuild --bundle --platform=node --format=esm --target=es2020 --jsx=automatic --outfile=examples/hs-demo/dist/main.js --external:ws examples/hs-demo/src/main.tsx",
-    "build:awesome-demo": "esbuild --bundle --platform=node --format=esm --target=es2020 --jsx=automatic --outfile=examples/awesome-demo/dist/main.js examples/awesome-demo/src/main.tsx"
+    "build:awesome-demo": "esbuild --bundle --platform=node --format=esm --target=es2020 --jsx=automatic --outfile=examples/awesome-demo/dist/main.js examples/awesome-demo/src/main.tsx",
+    "build:terminal-demo": "esbuild --bundle --platform=node --format=esm --target=es2020 --jsx=automatic --outfile=examples/terminal-demo/dist/main.js examples/terminal-demo/src/main.tsx"
   },
   "dependencies": {
     "@types/ws": "^8.18.1",

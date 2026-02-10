@@ -18,7 +18,8 @@
       "@ilovereact/cc": ["./packages/cc/src"],
       "@ilovereact/nvim": ["./packages/nvim/src"],
       "@ilovereact/hs": ["./packages/hs/src"],
-      "@ilovereact/awesome": ["./packages/awesome/src"]
+      "@ilovereact/awesome": ["./packages/awesome/src"],
+      "@ilovereact/terminal": ["./packages/terminal/src"]
     }
   }
 }
