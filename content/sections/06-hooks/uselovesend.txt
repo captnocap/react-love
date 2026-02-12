@@ -1,0 +1,85 @@
+=== METADATA ===
+title: useLoveSend
+description: Returns a fire-and-forget send function for dispatching commands to the Lua runtime.
+category: Hooks
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: useLoveSend, hook, send, command, fire-and-forget, dispatch, bridge
+related: uselove.txt, useloveevent.txt, useloverpc.txt
+difficulty: beginner
+
+=== OVERVIEW ===
+useLoveSend returns a send function for dispatching fire-and-forget commands to the Lua
+runtime. Unlike useLove (which also subscribes to events and tracks state), this hook only
+provides the send capability. It is the lightest-weight hook for components that only need
+to send commands without receiving responses.
+
+The returned function is memoized (stable reference), making it safe to include in
+dependency arrays and pass to child components.
+
+=== API / SYNTAX ===
+Signature:
+  function useLoveSend(): (type: string, payload?: any) => void
+
+Parameters:
+  (none)
+
+Returns:
+  (type: string, payload?: any) => void
+
+  A function that sends a command to the Lua runtime:
+    type: string       The command type identifier.
+    payload?: any      Optional data payload sent with the command.
+
+=== EXAMPLES ===
+Example 1: Send a command on click
+---
+import { useLoveSend } from '@ilovereact/core';
+
+function FireButton() {
+  const send = useLoveSend();
+
+  return (
+    <Box style={{ width: 120, height: 50, backgroundColor: '#f38ba8', borderRadius: 8 }}
+         onClick={() => send('weapon:fire', { x: 100, y: 200 })}>
+      <Text style={{ fontSize: 18, color: '#1e1e2e' }}>Fire!</Text>
+    </Box>
+  );
+}
+---
+Platforms: All
+
+Example 2: Pass send to child components
+---
+import { useLoveSend } from '@ilovereact/core';
+
+function Toolbar() {
+  const send = useLoveSend();
+
+  return (
+    <Box style={{ flexDirection: 'row', width: '100%', gap: 8, padding: 8 }}>
+      <ActionButton label="Save" onPress={() => send('game:save')} />
+      <ActionButton label="Load" onPress={() => send('game:load')} />
+      <ActionButton label="Quit" onPress={() => send('game:quit')} />
+    </Box>
+  );
+}
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+Works identically on all platforms. The send function dispatches through the bridge
+abstraction, which routes to the appropriate transport:
+- Love2D: QuickJS FFI bridge
+- Web: In-memory event queue
+- Grid targets: IPC/WebSocket
+
+=== CRITICAL RULES ===
+- The returned send function is memoized -- safe for dependency arrays
+- Fire-and-forget: no confirmation or response. Use useLoveRPC for request-response patterns
+- Must be used inside a BridgeProvider context
+- Commands are processed asynchronously by the Lua runtime on the next update cycle
+
+=== SEE ALSO ===
+- uselove.txt -- Send + event subscription + state tracking
+- useloverpc.txt -- Send with response (request-response pattern)
+- useloveevent.txt -- Listen for events without sending

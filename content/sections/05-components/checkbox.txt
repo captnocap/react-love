@@ -1,0 +1,93 @@
+=== METADATA ===
+title: Checkbox
+description: A toggleable checkbox with optional label, supporting controlled and uncontrolled modes.
+category: Components
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: checkbox, check, toggle, form, input, label, boolean
+related: Switch, Radio
+difficulty: beginner
+
+=== OVERVIEW ===
+Checkbox is a square toggle control that displays a filled inner square when checked. It optionally renders a text label to the right of the checkbox.
+
+Checkbox supports both controlled and uncontrolled modes. Pass `value` for controlled behavior, or use `defaultValue` for uncontrolled. The checkbox box border color changes between `color` (checked) and `uncheckedColor` (unchecked), and the box fills with `color` when checked with a white inner indicator.
+
+=== API / SYNTAX ===
+Import: import { Checkbox } from '@ilovereact/core';
+
+Usage:
+```tsx
+<Checkbox
+  value={accepted}
+  onValueChange={(v) => setAccepted(v)}
+  label="Accept terms"
+/>
+```
+
+Props:
+
+| Prop           | Type                       | Default    | Description                              |
+|----------------|----------------------------|------------|------------------------------------------|
+| value          | boolean                    | -          | Controlled value. Omit for uncontrolled  |
+| defaultValue   | boolean                    | false      | Initial value in uncontrolled mode       |
+| onValueChange  | (value: boolean) => void   | -          | Called when the checkbox is toggled       |
+| disabled       | boolean                    | false      | Disables interaction and dims opacity    |
+| label          | string                     | -          | Text label rendered beside the checkbox  |
+| size           | number                     | 20         | Checkbox box size in pixels              |
+| color          | Color                      | '#3b82f6'  | Border and fill color when checked       |
+| uncheckedColor | Color                      | '#6b7280'  | Border color when unchecked              |
+| style          | Style                      | -          | Container style overrides                |
+
+=== EXAMPLES ===
+Example 1: Basic controlled checkbox with label
+---
+```tsx
+const [checked, setChecked] = useState(false);
+
+<Checkbox
+  value={checked}
+  onValueChange={setChecked}
+  label="Enable notifications"
+/>
+```
+---
+Platforms: All
+
+Example 2: Uncontrolled with custom colors
+---
+```tsx
+<Checkbox
+  defaultValue={true}
+  color="#22c55e"
+  uncheckedColor="#94a3b8"
+  size={24}
+  label="Remember me"
+/>
+```
+---
+Platforms: All
+
+Example 3: Disabled checkbox
+---
+```tsx
+<Checkbox value={false} disabled label="Unavailable option" />
+```
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+- Web: Renders as `<div>` elements. The checkbox border and fill use CSS `transition` for smooth color changes. Cursor changes to `not-allowed` when disabled. Label renders as a `<span>` with `userSelect: 'none'`.
+- Native (Love2D): Uses `Box` with `borderWidth` and `borderColor` for the checkbox outline. The checked indicator is an inner `Box` with `backgroundColor: '#ffffff'`. Label renders as a `Text` element.
+- The inner check indicator size is `Math.round(size * 0.4)`.
+- The border width is `Math.max(2, Math.round(size / 10))`.
+- Label text color is `#e2e8f0` at `fontSize: 14`. Label and checkbox are laid out in a row with `gap: 8`.
+
+=== CRITICAL RULES ===
+- The `size` prop controls only the checkbox square, not the label text size.
+- When `disabled` is true, opacity is set to 0.5 and click events are ignored.
+- In controlled mode, the visual state does not change unless the parent updates `value` in response to `onValueChange`.
+
+=== SEE ALSO ===
+- Switch
+- Radio
+- Pressable

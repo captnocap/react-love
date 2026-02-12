@@ -1,0 +1,97 @@
+=== METADATA ===
+title: Installation Guide
+description: Prerequisites and step-by-step setup for the iLoveReact monorepo and CLI
+category: Getting Started
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: installation, setup, prerequisites, npm, make, quickjs, cli, love2d
+related: quick-start, first-app, source-of-truth
+difficulty: beginner
+
+=== OVERVIEW ===
+iLoveReact is an npm workspaces monorepo. The core framework runs on Node.js for builds
+and development tooling. The Love2D target additionally requires the Love2D runtime and
+a compiled QuickJS shared library. This guide walks through every step from a fresh
+clone to a verified installation.
+
+Grid targets (terminal, ComputerCraft, Neovim, Hammerspoon, AwesomeWM) only need
+Node.js. The Love2D target needs the full toolchain.
+
+=== API / SYNTAX ===
+Prerequisites:
+  - Node.js 18+ and npm
+  - Love2D 11+ (for Love2D target only)
+  - make + gcc (for QuickJS compilation, Love2D target only)
+  - git
+
+=== EXAMPLES ===
+Example 1: Full Installation (All Targets)
+---
+# 1. Clone the repository
+git clone <repo-url> && cd react-love
+
+# 2. Install npm dependencies (workspaces monorepo)
+npm install
+
+# 3. Build QuickJS shared library (needed for Love2D target)
+#    Clones quickjs-ng and compiles libquickjs.so
+make setup
+
+# 4. Propagate source-of-truth files to CLI runtime
+#    Copies lua/*.lua, packages/shared/, packages/native/, libquickjs.so
+#    into cli/runtime/ so the CLI can scaffold projects
+make cli-setup
+
+# 5. Link the CLI globally
+cd cli && npm link && cd ..
+
+# 6. Verify the installation
+ilovereact help
+---
+Platforms: All
+
+Example 2: Minimal Installation (Grid Targets Only)
+---
+# Grid targets (terminal, cc, nvim, hs, awesome) do not need Love2D or QuickJS
+
+# 1. Clone and install
+git clone <repo-url> && cd react-love
+npm install
+
+# 2. Build a terminal demo directly
+npm run build:terminal-demo
+
+# 3. Run it
+node examples/terminal-demo/dist/main.js
+---
+Platforms: terminal, cc, nvim, hs, awesome
+
+=== PLATFORM NOTES ===
+Love2D:
+  - Install Love2D 11+ from https://love2d.org or your package manager.
+  - On Linux: `sudo apt install love` or download the AppImage.
+  - On macOS: `brew install love` or download from love2d.org.
+  - The `make setup` step compiles libquickjs.so which requires a C compiler (gcc or clang).
+
+Terminal:
+  - Requires a terminal with truecolor support (most modern terminals).
+  - No additional system dependencies beyond Node.js.
+
+ComputerCraft:
+  - Requires a running Minecraft instance with CC: Tweaked mod.
+  - The WebSocket bridge connects to the CC terminal.
+
+Neovim:
+  - Requires Neovim 0.7+ with the `neovim` npm package.
+  - Communication via stdio.
+
+=== CRITICAL RULES ===
+- Always run `make cli-setup` after pulling framework changes. This propagates
+  source-of-truth files into the CLI runtime directory.
+- Never edit files in cli/runtime/ directly. They are overwritten by make cli-setup.
+- The `npm link` step in cli/ must be done once to make the `ilovereact` command
+  available globally.
+
+=== SEE ALSO ===
+- quick-start.txt - Create your first project after installation
+- 02-architecture/source-of-truth.txt - Why the sync pipeline matters
+- 11-troubleshooting/common-errors.txt - Installation troubleshooting

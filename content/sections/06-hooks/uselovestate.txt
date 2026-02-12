@@ -1,0 +1,110 @@
+=== METADATA ===
+title: useLoveState
+description: Bidirectional shared state between React and Lua with automatic synchronization.
+category: Hooks
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: useLoveState, hook, shared state, bidirectional, sync, bridge, setState, subscribe
+related: uselove.txt, uselovesend.txt
+difficulty: intermediate
+
+=== OVERVIEW ===
+useLoveState provides bidirectional shared state between React and the Lua runtime. It works
+like React's useState but with automatic synchronization: when you call setValue from React,
+it updates both the local React state and the Lua-side state via the bridge. When the Lua
+side updates the state, the change propagates to React via a `state:${key}` event.
+
+This hook is ideal for settings, configuration values, and any state that both React and Lua
+need to read and write.
+
+=== API / SYNTAX ===
+Signature:
+  function useLoveState<T>(key: string, initialValue: T): [T, (value: T) => void]
+
+Parameters:
+  key: string
+    A unique key identifying this shared state. The hook subscribes to `state:${key}` events
+    from the bridge. Use dot notation for namespacing (e.g., 'player.health', 'settings.volume').
+
+  initialValue: T
+    The initial value before any sync events arrive from the Lua side.
+
+Returns:
+  [value, setValue]
+
+  value: T
+    The current value of the shared state.
+
+  setValue: (value: T) => void
+    Updates both the local React state and the Lua-side state. Calls setLocal(value) for
+    immediate React update and bridge.setState(key, value) to sync to Lua.
+
+=== EXAMPLES ===
+Example 1: Shared volume setting
+---
+import { useLoveState } from '@ilovereact/core';
+
+function VolumeControl() {
+  const [volume, setVolume] = useLoveState('settings.volume', 0.8);
+
+  return (
+    <Box style={{ width: '100%', padding: 16 }}>
+      <Text style={{ fontSize: 16, color: '#cdd6f4' }}>
+        {`Volume: ${Math.round(volume * 100)}%`}
+      </Text>
+      <Box style={{ flexDirection: 'row', width: '100%', gap: 8 }}>
+        <Box style={{ width: 60, height: 40, backgroundColor: '#f38ba8', borderRadius: 4 }}
+             onClick={() => setVolume(Math.max(0, volume - 0.1))}>
+          <Text style={{ fontSize: 14, color: '#1e1e2e' }}>-</Text>
+        </Box>
+        <Box style={{ width: 60, height: 40, backgroundColor: '#a6e3a1', borderRadius: 4 }}
+             onClick={() => setVolume(Math.min(1, volume + 0.1))}>
+          <Text style={{ fontSize: 14, color: '#1e1e2e' }}>+</Text>
+        </Box>
+      </Box>
+    </Box>
+  );
+}
+---
+Platforms: All
+
+Example 2: Player health synced from Lua
+---
+import { useLoveState } from '@ilovereact/core';
+
+function HealthBar() {
+  const [health, setHealth] = useLoveState('player.health', 100);
+
+  return (
+    <Box style={{ width: 200, height: 20, backgroundColor: '#313244', borderRadius: 4 }}>
+      <Box style={{
+        width: `${health}%`,
+        height: '100%',
+        backgroundColor: health > 50 ? '#a6e3a1' : '#f38ba8',
+        borderRadius: 4,
+      }} />
+    </Box>
+  );
+}
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+The bidirectional sync works on all platforms via the bridge abstraction:
+- React to Lua: setValue calls bridge.setState(key, value)
+- Lua to React: Lua dispatches a `state:${key}` event, which the hook subscribes to
+
+The sync is eventual -- there may be a frame of latency between setValue and the Lua side
+seeing the update, and vice versa. For time-critical state, consider using RPC instead.
+
+=== CRITICAL RULES ===
+- setValue updates React state immediately (optimistic) and then syncs to Lua
+- State from Lua arrives as events with type `state:${key}` -- the key must match exactly
+- The setValue function is memoized (stable reference) when the key does not change
+- Multiple components can share the same key -- they will all receive updates
+- Must be used inside a BridgeProvider context
+- The initial value is used only on first render -- Lua-side state takes precedence once synced
+
+=== SEE ALSO ===
+- uselove.txt -- Event subscription with manual send
+- useloverpc.txt -- Request-response communication
+- uselovesend.txt -- Fire-and-forget commands

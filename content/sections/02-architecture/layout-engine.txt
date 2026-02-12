@@ -1,0 +1,102 @@
+=== METADATA ===
+title: Layout Engine
+description: The Lua-side flexbox layout engine that computes positions and sizes for every node
+category: Architecture
+platforms: love2d
+keywords: layout, flexbox, layout.lua, computed rect, text measurement, flex-grow, flex-shrink
+related: pipeline, painter, style-properties
+difficulty: intermediate
+
+=== OVERVIEW ===
+The layout engine (layout.lua) is a Lua-side flexbox implementation that runs inside the
+Love2D process. After the retained tree receives mutation commands, the layout engine
+walks the entire tree and computes a {x, y, w, h} rect for every node. It handles
+absolute units, percentages, vw/vh viewport units, flex-grow/shrink distribution, text
+wrapping via Love2D font metrics, and all standard flexbox properties.
+
+The engine is designed for the Love2D fixed-canvas model, not for scrolling web pages.
+The viewport has a known size at all times, and every node's dimensions can be resolved
+in a single top-down pass with one re-measure step for flex-distributed text nodes.
+
+=== API / SYNTAX ===
+Public API:
+  Layout.init(config)                - Initialize with { measure = MeasureModule }
+  Layout.layout(node, x, y, w, h)   - Lay out entire tree from root
+  Layout.layoutNode(node, px, py, pw, ph) - Lay out a single node recursively
+  Layout.resolveUnit(value, parentSize)   - Resolve a value to pixels
+
+Supported Unit Types:
+  number      - Pixels (e.g., 200)
+  "50%"       - Percentage of parent dimension
+  "10vw"      - Percentage of viewport width
+  "5vh"       - Percentage of viewport height
+
+Supported Flexbox Properties:
+  flexDirection:  'row' | 'column' (default: 'column')
+  flexWrap:       'nowrap' | 'wrap' (default: 'nowrap')
+  justifyContent: 'start' | 'center' | 'end' | 'space-between' | 'space-around' | 'space-evenly'
+  alignItems:     'start' | 'center' | 'end' | 'stretch' (default: 'stretch')
+  alignSelf:      'auto' | 'start' | 'center' | 'end' | 'stretch'
+  flexGrow:       number (default: 0)
+  flexShrink:     number (default: 1, CSS spec default)
+  flexBasis:      number | string | 'auto'
+  gap:            number | string
+
+=== EXAMPLES ===
+Example 1: Layout Algorithm Overview
+---
+For each node, Layout.layoutNode performs these steps:
+
+  1. Resolve own dimensions (width, height) from style + parent constraints
+  2. Apply aspectRatio if set and one dimension is missing
+  3. Apply flex-adjusted dimensions from parent distribution (_flexW, _stretchH)
+  4. Resolve padding (all sides)
+  5. Measure intrinsic text size if this is a Text node without explicit dimensions
+  6. Apply min/max width/height clamping (re-measure text if width changed)
+  7. Resolve margin (all sides)
+  8. Compute inner dimensions (outer minus padding)
+  9. Filter visible children (skip display: 'none')
+  10. Split children into flex lines (single line if nowrap)
+  11. For each flex line:
+      a. Distribute flex-grow (positive free space) or flex-shrink (negative)
+      b. Re-measure text nodes whose width changed from flex distribution
+      c. Compute line cross-axis size
+      d. Apply justifyContent offset and extra gap
+      e. Position each child with alignItems/alignSelf
+      f. Recurse into each child: Layout.layoutNode(child, ...)
+  12. Auto-height: shrink to content if height was not explicit
+  13. Track scroll content dimensions for scroll containers
+---
+Platforms: love2d
+
+Example 2: Text Measurement
+---
+Text measurement is the key difference from CSS flexbox. In a browser, the layout
+engine has access to the full text shaping pipeline. In iLoveReact, text measurement
+is done via Love2D's font:getWrap() and font:getWidth() APIs.
+
+For a Text node without explicit width/height:
+  1. Use parent's inner width as the wrap constraint
+  2. Call measureText(text, fontSize, constraintWidth, fontFamily, lineHeight, letterSpacing, numberOfLines, fontWeight)
+  3. Set node width = measured text width + padding
+  4. Set node height = measured text height + padding
+
+If flex-grow changes the node's width after initial measurement:
+  5. Re-measure with the new width to get correct wrapped height
+---
+Platforms: love2d
+
+=== CRITICAL RULES ===
+- Nodes without explicit width default to their parent's width (not zero).
+- Nodes without explicit height auto-size to their content.
+- Scroll containers without explicit height default to 0 (they need explicit
+  height or flex-grow to be visible).
+- flexGrow only distributes positive free space. If the parent has no definite
+  size on the main axis, there is no free space to distribute.
+- The layout engine runs synchronously on every frame where the tree is dirty.
+
+=== SEE ALSO ===
+- 04-layout-system/flexbox.txt - User-facing flexbox guide
+- 04-layout-system/sizing.txt - Sizing model details
+- 12-api-reference/style-properties.txt - Complete style property reference
+- painter.txt - What happens after layout

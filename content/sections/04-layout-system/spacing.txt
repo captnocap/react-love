@@ -1,0 +1,136 @@
+=== METADATA ===
+title: Padding, Margin, and Gap
+description: Spacing properties for controlling element padding, margin, and flex gap.
+category: Layout
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: padding, margin, gap, spacing, paddingLeft, paddingRight, paddingTop, paddingBottom, marginLeft, marginRight, marginTop, marginBottom
+related: flexbox.txt, sizing.txt, visual.txt
+difficulty: beginner
+
+=== OVERVIEW ===
+iLoveReact supports padding (inner spacing), margin (outer spacing), and gap (spacing
+between flex children). These work the same way as in CSS Flexbox: padding creates space
+inside the element's border, margin creates space outside, and gap creates uniform spacing
+between sibling children in a flex container.
+
+All spacing values accept numbers (pixels on Love2D/web, character cells on grid targets)
+or percentage strings. Shorthand properties (padding, margin) apply to all four sides, and
+per-side properties (paddingLeft, marginTop, etc.) override the shorthand for specific sides.
+
+=== API / SYNTAX ===
+Padding properties:
+
+  padding: number | string
+    Applies uniform padding to all four sides.
+
+  paddingLeft: number | string
+  paddingRight: number | string
+  paddingTop: number | string
+  paddingBottom: number | string
+    Per-side padding. Overrides the shorthand `padding` for the specified side.
+
+Margin properties:
+
+  margin: number | string
+    Applies uniform margin to all four sides.
+
+  marginLeft: number | string
+  marginRight: number | string
+  marginTop: number | string
+  marginBottom: number | string
+    Per-side margin. Overrides the shorthand `margin` for the specified side.
+
+Gap property:
+
+  gap: number | string
+    Spacing between children along the main axis of a flex container.
+    Applied between each pair of adjacent children.
+
+=== EXAMPLES ===
+Example 1: Uniform padding
+---
+<Box style={{
+  width: '100%',
+  height: '100%',
+  padding: 24,
+  backgroundColor: '#1e1e2e',
+}}>
+  <Text style={{ fontSize: 16, color: '#cdd6f4' }}>
+    {`24px of space on all sides`}
+  </Text>
+</Box>
+---
+Platforms: All
+
+Example 2: Per-side padding
+---
+<Box style={{
+  width: 300,
+  height: 100,
+  paddingLeft: 20,
+  paddingRight: 20,
+  paddingTop: 8,
+  paddingBottom: 8,
+  backgroundColor: '#313244',
+}}>
+  <Text style={{ fontSize: 14, color: '#cdd6f4' }}>Asymmetric padding</Text>
+</Box>
+---
+Platforms: All
+
+Example 3: Margin for spacing between siblings
+---
+<Box style={{ width: '100%', height: '100%', padding: 16 }}>
+  <Box style={{ height: 50, marginBottom: 12, backgroundColor: '#f38ba8' }} />
+  <Box style={{ height: 50, marginBottom: 12, backgroundColor: '#a6e3a1' }} />
+  <Box style={{ height: 50, backgroundColor: '#89b4fa' }} />
+</Box>
+---
+Platforms: All
+
+Example 4: Gap for uniform child spacing
+---
+<Box style={{ width: '100%', height: '100%', padding: 16, gap: 12 }}>
+  <Box style={{ height: 50, backgroundColor: '#f38ba8' }} />
+  <Box style={{ height: 50, backgroundColor: '#a6e3a1' }} />
+  <Box style={{ height: 50, backgroundColor: '#89b4fa' }} />
+</Box>
+---
+Platforms: All
+
+Example 5: Row with gap
+---
+<Box style={{
+  flexDirection: 'row',
+  width: '100%',
+  gap: 8,
+  padding: 16,
+}}>
+  <Box style={{ width: 80, height: 80, backgroundColor: '#f38ba8' }} />
+  <Box style={{ width: 80, height: 80, backgroundColor: '#a6e3a1' }} />
+  <Box style={{ width: 80, height: 80, backgroundColor: '#89b4fa' }} />
+</Box>
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+Love2D: Spacing values are in pixels. The Lua layout engine accounts for padding when
+computing child positions and for margin when spacing siblings.
+
+Web: Maps directly to CSS padding, margin, and gap properties. Number values become CSS
+pixels.
+
+Grid targets: Spacing values are in character cells. A padding of 2 means 2 character
+cells of empty space inside the element border.
+
+=== CRITICAL RULES ===
+- Padding reduces the available content area inside an element
+- Margin does not collapse in Flexbox layout (unlike CSS block layout)
+- Gap is applied between children only, not before the first or after the last child
+- Per-side properties (paddingLeft, marginTop, etc.) override the shorthand for that side
+- Percentage spacing values are relative to the parent container's width (matching CSS behavior)
+
+=== SEE ALSO ===
+- flexbox.txt -- Flexbox layout and gap usage
+- sizing.txt -- How sizing interacts with padding
+- visual.txt -- Border width also affects content area

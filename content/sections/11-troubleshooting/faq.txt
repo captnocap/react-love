@@ -1,0 +1,122 @@
+=== METADATA ===
+title: FAQ
+description: Frequently asked questions about iLoveReact capabilities, limitations, and workflows
+category: Troubleshooting
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: faq, questions, npm packages, debug, hot reload, react version, css, text measurement
+related: common-errors, installation, philosophy, debugging
+difficulty: beginner
+
+=== OVERVIEW ===
+This page answers the most frequently asked questions about iLoveReact. If your question
+is not here, check the common errors page for specific error symptoms, or the debugging
+page for runtime investigation tools.
+
+=== EXAMPLES ===
+Example 1: Can I use npm packages?
+---
+Q: Can I install and use npm packages in my iLoveReact app?
+
+A: Yes. Your src/ directory is a standard TypeScript/React project. Install packages
+with `npm install` and import them normally. The esbuild bundler resolves and bundles
+npm dependencies into the output.
+
+Note: For the Love2D target, the bundle runs inside QuickJS, which has no Node.js
+APIs (no fs, no http, no child_process). Pure JavaScript packages work. Packages
+that depend on Node.js built-ins will not work in Love2D native mode but will work
+in web mode or grid targets (which run on Node.js).
+---
+Platforms: All
+
+Example 2: How do I debug on Love2D?
+---
+Q: How do I inspect my UI layout at runtime on Love2D?
+
+A: Press F12 to open the visual inspector. It overlays node boundaries, computed
+dimensions, and style properties on your live UI. Move your mouse over elements to
+see their layout data. Press F12 again to close.
+
+For evaluating expressions at runtime, press the backtick key (`) to open the
+interactive console. Type JavaScript expressions and see results inline.
+---
+Platforms: love2d
+
+Example 3: How does hot reload work?
+---
+Q: How do I see my changes without restarting Love2D?
+
+A: Use `ilovereact dev` in one terminal (watch mode, rebuilds bundle.js on change)
+and `love .` in another terminal. The Lua runtime polls bundle.js every ~1 second.
+When it detects a change, it:
+  1. Reads dev state from JS (__getDevState)
+  2. Destroys the QuickJS context
+  3. Clears all Lua-side state (tree, images, animations, hover, focus)
+  4. Creates a new QuickJS context
+  5. Loads the new bundle
+  6. Injects cached dev state (__devState)
+  7. Triggers mount
+
+This gives you near-instant reload without restarting Love2D.
+---
+Platforms: love2d
+
+Example 4: What React version is required?
+---
+Q: What version of React does iLoveReact use?
+
+A: React 18.3+ with react-reconciler 0.29. The reconciler version must match
+the React version. iLoveReact uses React's concurrent features where applicable.
+---
+Platforms: All
+
+Example 5: Can I use CSS?
+---
+Q: Can I use CSS stylesheets, CSS modules, or Tailwind CSS?
+
+A: No. iLoveReact uses Style objects with flexbox properties, not CSS. The Style
+interface is defined in TypeScript and supports a subset of CSS flexbox properties
+plus custom properties for the target renderers.
+
+In web mode, Style objects are converted to React CSSProperties by the styleToCSS()
+function. But you write Style objects, not CSS.
+
+There is no CSS cascade, no class selectors, no media queries, and no CSS variables.
+All styling is explicit and co-located with components.
+---
+Platforms: All
+
+Example 6: How does text measurement work?
+---
+Q: How does iLoveReact know how wide text is?
+
+A: On Love2D, text measurement uses Love2D's font:getWrap() and font:getWidth()
+APIs. The measure.lua module loads fonts by (size, family, weight) and caches
+them. When the layout engine encounters a Text node without explicit dimensions,
+it calls measureText() to get the intrinsic width and height based on the font
+metrics and the available width constraint.
+
+On web, the browser's own text measurement is used (via CSS).
+
+On grid targets, text width equals the character count (monospace grids).
+---
+Platforms: All
+
+Example 7: Can I mix targets?
+---
+Q: Can I render the same component to multiple targets simultaneously?
+
+A: Each build is target-specific. You cannot render to Love2D and a terminal
+from the same running process. However, shared components (those that only use
+Box, Text, Pressable, and standard Style properties) work across all targets
+without modification.
+
+The recommended approach: write your components in a shared package, then
+create target-specific entry points that import and render them.
+---
+Platforms: All
+
+=== SEE ALSO ===
+- common-errors.txt - Specific error messages and fixes
+- 10-advanced/debugging.txt - F12 inspector and console details
+- 01-getting-started/installation.txt - Setup and prerequisites
+- 01-getting-started/philosophy.txt - Design principles

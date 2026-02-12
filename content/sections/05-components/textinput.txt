@@ -1,0 +1,112 @@
+=== METADATA ===
+title: TextInput
+description: Editable single-line or multiline text field with cursor, placeholder, and secure entry support.
+category: Components
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: text input, input, field, form, editable, cursor, password, text
+related: TextEditor, Pressable
+difficulty: beginner
+
+=== OVERVIEW ===
+TextInput is an editable text field that handles keyboard input, cursor positioning, and text manipulation. It supports single-line and multiline modes, placeholder text, secure entry (password masking), and both controlled and uncontrolled value management.
+
+In web mode, TextInput renders a native HTML `<input>` or `<textarea>`. In native mode (Love2D), it renders a custom implementation using Box and Text primitives with a blinking cursor, handling keystrokes via `onKeyDown` and `onTextInput` events from the Love2D bridge.
+
+=== API / SYNTAX ===
+Import: import { TextInput } from '@ilovereact/core';
+
+Usage:
+```tsx
+<TextInput
+  value={text}
+  onChangeText={setText}
+  placeholder="Type here..."
+  style={{ width: 200 }}
+/>
+```
+
+Props (from TextInputProps in types.ts):
+
+| Prop             | Type                       | Default     | Description                                        |
+|------------------|----------------------------|-------------|----------------------------------------------------|
+| value            | string                     | -           | Controlled text value                              |
+| defaultValue     | string                     | -           | Initial value in uncontrolled mode                 |
+| onChangeText     | (text: string) => void     | -           | Called when text changes                           |
+| onSubmit         | (text: string) => void     | -           | Called on Enter (single-line) or submit action     |
+| onFocus          | () => void                 | -           | Called when the input gains focus                  |
+| onBlur           | () => void                 | -           | Called when the input loses focus                  |
+| placeholder      | string                     | -           | Placeholder text shown when empty                  |
+| placeholderColor | Color                      | -           | Color of placeholder text (native: '#888888')      |
+| maxLength        | number                     | -           | Maximum character count                            |
+| multiline        | boolean                    | false       | Enables multiline mode (textarea)                  |
+| editable         | boolean                    | true        | Whether text can be edited                         |
+| secureTextEntry  | boolean                    | false       | Masks text with bullet characters                  |
+| style            | Style                      | -           | Container style overrides                          |
+| textStyle        | Style                      | -           | Text content style (fontSize, color, etc.)         |
+| autoFocus        | boolean                    | false       | Automatically focus on mount                       |
+| cursorColor      | Color                      | -           | Color of the blinking cursor and focus border      |
+
+=== EXAMPLES ===
+Example 1: Basic controlled input
+---
+```tsx
+const [name, setName] = useState('');
+
+<TextInput
+  value={name}
+  onChangeText={setName}
+  placeholder="Enter your name"
+  style={{ width: 250, height: 32 }}
+  textStyle={{ fontSize: 14, color: '#e2e8f0' }}
+/>
+```
+---
+Platforms: All
+
+Example 2: Password field
+---
+```tsx
+<TextInput
+  value={password}
+  onChangeText={setPassword}
+  secureTextEntry
+  placeholder="Password"
+  onSubmit={(text) => handleLogin(text)}
+  style={{ width: 200 }}
+/>
+```
+---
+Platforms: All
+
+Example 3: Multiline with max length
+---
+```tsx
+<TextInput
+  defaultValue=""
+  multiline
+  maxLength={500}
+  placeholder="Write a message..."
+  style={{ width: 300, height: 120 }}
+  textStyle={{ fontSize: 12 }}
+/>
+```
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+- Web: Renders `<input>` for single-line, `<textarea>` for multiline. Uses native browser focus, cursor, and selection behavior. `placeholderColor` is applied via a scoped `::placeholder` CSS rule. `cursorColor` maps to the CSS `caretColor` property.
+- Native (Love2D): Renders a Box container with Text children. The cursor is a 2px-wide colored Box that blinks at 530ms intervals. Keyboard events (`onKeyDown`, `onTextInput`) drive all editing. Supports backspace, delete, left/right arrows, home, end, return, escape, and tab keys. Escape and tab blur the input. Return triggers `onSubmit` in single-line mode or inserts a newline in multiline mode.
+- Native default styling: dark background (`#1a1a1a`), 1px border (`#666666` unfocused, `cursorColor` or `#4A90D9` focused), `borderRadius: 4`, `padding: 4`.
+- In native mode, clicking the input focuses it and places the cursor at the end of the text.
+
+=== CRITICAL RULES ===
+- TextInput needs explicit `width` in its style. Without it, the container will collapse.
+- In native mode, the cursor position is maintained internally. External `value` changes will clamp the cursor to the new text length.
+- The `onSubmit` callback fires on Enter in single-line mode. In multiline mode, Enter inserts a newline instead.
+- When `editable` is false, the text is displayed but keystroke events are ignored.
+- `secureTextEntry` replaces each character with a bullet character (U+2022) in the display.
+
+=== SEE ALSO ===
+- TextEditor
+- Box
+- Text

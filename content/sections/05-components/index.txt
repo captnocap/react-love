@@ -1,0 +1,109 @@
+=== METADATA ===
+title: Components Overview
+description: Reference index for all iLoveReact primitives and components
+category: Components
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: components, primitives, box, text, image, pressable, scrollview, modal, slider, reference
+related: Layout System, Hooks, Animation
+difficulty: beginner
+
+=== OVERVIEW ===
+iLoveReact ships a set of universal primitives and higher-level components that work across all render targets. Every visible element on screen is built from these building blocks. Primitives are the lowest-level elements (Box, Text, Image) that map directly to host elements in each target. Components are composed from primitives and provide richer interaction patterns (Pressable, ScrollView, Modal, Slider, and others).
+
+All primitives and components are exported from `@ilovereact/core`. Grid targets (terminal, ComputerCraft, Neovim, Hammerspoon, AwesomeWM) use lowercase JSX intrinsics (`<view>`, `<text>`) and typically define local wrapper components; the `@ilovereact/core` exports target Love2D and web renderers.
+
+=== API / SYNTAX ===
+```tsx
+import {
+  // Primitives
+  Box, Text, Image,
+
+  // Interaction
+  Pressable, ScrollView, Modal, Slider,
+
+  // Form primitives
+  TextInput, TextEditor, Checkbox, Radio, RadioGroup, Select, Switch,
+
+  // Layout helpers
+  FlexRow, FlexColumn, Spacer, Card, Badge, Divider,
+
+  // Navigation
+  NavPanel, Tabs, Breadcrumbs, Toolbar,
+
+  // Data visualization
+  Table, BarChart, ProgressBar, Sparkline, FlatList,
+
+  // Portal system
+  Portal, PortalHost,
+} from '@ilovereact/core';
+```
+
+=== COMPONENT INDEX ===
+
+Primitives (layout building blocks):
+  Box        - Flexbox layout container. Every UI tree starts here.
+  Text       - Renders text content with font styling.
+  Image      - Displays images with sizing and objectFit control.
+
+Interaction:
+  Pressable  - Interaction wrapper with press, long press, and hover state tracking.
+  ScrollView - Scrollable container with imperative scrollTo API.
+  Modal      - Fullscreen overlay with backdrop, animations, and dismiss handling.
+  Slider     - Draggable range input with track and thumb.
+
+Form Primitives:
+  TextInput  - Single-line and multiline text entry.
+  TextEditor - Multi-line code/document editor with line numbers (Lua-owned).
+  Checkbox   - Toggle checkbox with label support.
+  Radio      - Radio button; use with RadioGroup for mutual exclusion.
+  RadioGroup - Groups Radio buttons for single-selection behavior.
+  Select     - Dropdown selector with option list.
+  Switch     - Toggle switch with on/off states.
+
+Layout Helpers:
+  FlexRow    - Shorthand for Box with flexDirection: 'row'.
+  FlexColumn - Shorthand for Box with flexDirection: 'column'.
+  Spacer     - Flexible or fixed-size empty space.
+  Card       - Styled container with background, padding, border radius, and shadow.
+  Badge      - Small label for status indicators or counts.
+  Divider    - Horizontal or vertical line separator.
+
+Navigation:
+  NavPanel    - Sidebar navigation with sections and items.
+  Tabs        - Tabbed content switcher.
+  Breadcrumbs - Hierarchical path trail.
+  Toolbar     - Horizontal button/action bar.
+
+Data Visualization:
+  Table       - Tabular data display with columns and rows.
+  BarChart    - Horizontal or vertical bar chart.
+  ProgressBar - Determinate or indeterminate progress indicator.
+  Sparkline   - Inline mini line chart.
+  FlatList    - Virtualized list for large datasets.
+
+Portal System:
+  Portal     - Renders children into a PortalHost outside the normal tree.
+  PortalHost - Mounting point for Portal content (used by Modal internally).
+
+=== PLATFORM NOTES ===
+Love2D:
+  All components render as string-typed host elements ('View', 'Text', 'Image') processed by the Lua layout engine and painter. Flexbox is computed by layout.lua. Events go through bridge_quickjs.lua.
+
+Web:
+  Primitives render as DOM elements (div, span, img) with CSS flexbox. Interaction events use standard DOM event listeners. Styles are converted from the Style type to React.CSSProperties by styleToCSS().
+
+Terminal / Grid targets:
+  Use lowercase intrinsics (<view>, <text>) with the grid layout engine. The @ilovereact/core components are not used directly; grid targets have their own component wrappers built on @ilovereact/grid.
+
+=== CRITICAL RULES ===
+- Always import from '@ilovereact/core', never from internal package paths
+- Every <Text> must have an explicit fontSize -- the linter will block your build otherwise
+- Root containers need width: '100%' and height: '100%', not flexGrow: 1
+- Grid targets use different primitives; do not import @ilovereact/core components into grid-target code
+- Run `ilovereact lint` after any component change to catch layout violations early
+
+=== SEE ALSO ===
+- Layout System (04-layout-system)
+- Hooks (06-hooks)
+- Animation (07-animation)
+- Style type reference (12-api-reference)

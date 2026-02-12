@@ -1,0 +1,74 @@
+=== METADATA ===
+title: iLoveReact Philosophy
+description: Core design principles behind iLoveReact - React stripped of browser magic, rendered as raw geometry
+category: Getting Started
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: philosophy, design, principles, multi-target, rendering, geometry, flexbox
+related: pipeline, layout-engine, source-of-truth
+difficulty: beginner
+
+=== OVERVIEW ===
+iLoveReact is React stripped of browser magic and rendered as raw geometry. There is no
+DOM, no CSS cascade, no implicit sizing, no inherited font stacks, no default margins.
+Every pixel on screen exists because your code explicitly put it there.
+
+If you did not say how wide it is, it is zero. If you said grow, it grows exactly. If
+you nested flex containers, you own the consequences. If text wraps, it is because you
+gave it nowhere to go. This is not a browser abstraction layer. This is direct rendering
+-- React's component model driving actual draw calls on real hardware.
+
+=== EXAMPLES ===
+Example 1: The Multi-Target Promise
+---
+Write a component once:
+
+  import { Box, Text } from '@ilovereact/core';
+
+  function Greeting() {
+    return (
+      <Box style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ fontSize: 24, color: '#ffffff' }}>Hello from anywhere</Text>
+      </Box>
+    );
+  }
+
+Then render it on:
+  - Love2D (pixel-perfect 2D graphics engine)
+  - Web browsers (DOM overlay renderer)
+  - Terminals (ANSI truecolor escape sequences)
+  - ComputerCraft (Minecraft 16-color terminal)
+  - Neovim (floating windows)
+  - Hammerspoon (macOS automation canvas)
+  - AwesomeWM (Linux tiling WM widgets)
+---
+Platforms: All
+
+Example 2: The Rendering Pipeline
+---
+The data flows through a fixed pipeline on every frame:
+
+  1. React reconciler    - Diffs your component tree, produces mutation commands
+  2. Mutation commands   - JSON describing createNode, updateProps, appendChild, etc.
+  3. Transport layer     - Delivers commands to the target runtime (QuickJS FFI, WebSocket, stdio, Module.FS)
+  4. Layout engine       - Lua-side flexbox computes {x, y, width, height} for every node
+  5. Target painter      - Draws actual pixels, characters, or API calls for the target platform
+
+Each target has its own painter, but the reconciler, mutation protocol, and layout
+engine are shared across all of them.
+---
+Platforms: All
+
+=== CRITICAL RULES ===
+- There is no implicit sizing. A Box without width and height is zero by zero.
+- There is no CSS cascade. Style properties do not inherit from parent to child
+  (except fontSize and color on nested Text nodes).
+- Every Text node MUST have an explicit fontSize. The linter enforces this.
+- flexGrow only works when the parent has a known size on the main axis.
+- This is NOT a browser. There are no default stylesheets, no user-agent margins,
+  no block/inline flow model. Everything is flexbox, always.
+
+=== SEE ALSO ===
+- 02-architecture/pipeline.txt - Detailed rendering pipeline walkthrough
+- 02-architecture/layout-engine.txt - How the Lua flexbox engine works
+- 04-layout-system/flexbox.txt - Flexbox property reference
+- 11-troubleshooting/common-errors.txt - Common mistakes and fixes

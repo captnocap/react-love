@@ -1,0 +1,151 @@
+=== METADATA ===
+title: Love2D Target
+description: The primary iLoveReact target - pixel-perfect rendering via the Love2D game engine
+category: Targets
+platforms: love2d
+keywords: love2d, native, quickjs, pixel rendering, iife, inspector, f12, game engine
+related: web, terminal, pipeline, painter, layout-engine
+difficulty: intermediate
+
+=== OVERVIEW ===
+Love2D is the primary and most mature iLoveReact target. Your React components run
+inside QuickJS (a lightweight JavaScript engine embedded in the Love2D process via
+libquickjs.so). The Lua runtime handles layout computation and rendering using
+love.graphics draw calls. This gives you pixel-perfect rendering with full support for
+mouse, keyboard, touch, and gamepad input.
+
+The Love2D target supports the complete iLoveReact feature set: flexbox layout, text
+measurement and wrapping, image loading, scroll containers, gradients, shadows,
+transforms, transitions, keyframe animations, and the F12 visual inspector.
+
+=== API / SYNTAX ===
+esbuild Configuration:
+  --format=iife
+  --global-name=ReactLove
+
+Build Commands:
+  ilovereact dev              - Watch mode with HMR
+  ilovereact build            - Lint gate + production bundle
+  ilovereact build dist:love  - Self-extracting Linux binary
+
+Runtime Modes:
+  native  - QuickJS FFI bridge (default for `love .`)
+  web     - Module.FS bridge (for love.js / Emscripten builds)
+  canvas  - Module.FS bridge + native rendering pipeline (hybrid web)
+
+Love2D Callbacks (wired in main.lua):
+  love.update(dt)       -> ReactLove.update(dt)
+  love.draw()           -> ReactLove.draw()
+  love.mousepressed()   -> ReactLove.mousepressed(x, y, button)
+  love.mousereleased()  -> ReactLove.mousereleased(x, y, button)
+  love.mousemoved()     -> ReactLove.mousemoved(x, y)
+  love.keypressed()     -> ReactLove.keypressed(key, scancode, isrepeat)
+  love.keyreleased()    -> ReactLove.keyreleased(key, scancode)
+  love.textinput()      -> ReactLove.textinput(text)
+  love.wheelmoved()     -> ReactLove.wheelmoved(x, y)
+  love.touchpressed()   -> ReactLove.touchpressed(id, x, y, dx, dy, pressure)
+  love.touchreleased()  -> ReactLove.touchreleased(id, x, y, dx, dy, pressure)
+  love.touchmoved()     -> ReactLove.touchmoved(id, x, y, dx, dy, pressure)
+  love.gamepadpressed() -> ReactLove.gamepadpressed(joystick, button)
+  love.gamepadreleased()-> ReactLove.gamepadreleased(joystick, button)
+  love.gamepadaxis()    -> ReactLove.gamepadaxis(joystick, axis, value)
+  love.resize()         -> ReactLove.resize(w, h)
+  love.quit()           -> ReactLove.quit()
+
+=== EXAMPLES ===
+Example 1: Standard App Entry Point (src/index.tsx)
+---
+import { createLove2DApp } from '@ilovereact/native';
+import App from './App';
+
+const app = createLove2DApp();
+app.render(<App />);
+---
+Platforms: love2d
+
+Example 2: main.lua Entry Point
+---
+local ReactLove = require("lua")
+
+function love.load()
+  ReactLove.init({
+    bundlePath = "bundle.js",
+    libpath = "lib/libquickjs",
+  })
+end
+
+function love.update(dt)
+  ReactLove.update(dt)
+end
+
+function love.draw()
+  ReactLove.draw()
+end
+
+function love.mousepressed(x, y, button)
+  ReactLove.mousepressed(x, y, button)
+end
+
+function love.mousereleased(x, y, button)
+  ReactLove.mousereleased(x, y, button)
+end
+
+function love.mousemoved(x, y)
+  ReactLove.mousemoved(x, y)
+end
+
+function love.keypressed(key, scancode, isrepeat)
+  ReactLove.keypressed(key, scancode, isrepeat)
+end
+
+function love.keyreleased(key, scancode)
+  ReactLove.keyreleased(key, scancode)
+end
+
+function love.textinput(text)
+  ReactLove.textinput(text)
+end
+
+function love.wheelmoved(x, y)
+  ReactLove.wheelmoved(x, y)
+end
+
+function love.resize(w, h)
+  ReactLove.resize(w, h)
+end
+
+function love.quit()
+  ReactLove.quit()
+end
+---
+Platforms: love2d
+
+=== PLATFORM NOTES ===
+Features:
+  - Pixel-perfect rendering (no browser rendering quirks)
+  - Full input support: mouse, keyboard, touch, gamepad
+  - F12 visual inspector for debugging layout
+  - Backtick (`) console for evaluating JS/Lua at runtime
+  - Hot module reload (HMR) -- bundle.js changes detected automatically
+  - Screenshot capture via `ilovereact screenshot`
+  - Error overlay for runtime errors
+  - Self-extracting binary distribution (Linux)
+
+Limitations:
+  - No text selection or clipboard (OS-level)
+  - Font rendering is Love2D's built-in renderer (no HarfBuzz)
+  - Bold is simulated (faux bold via double draw with 0.8px offset)
+  - No sub-pixel antialiasing
+
+=== CRITICAL RULES ===
+- The bundle format MUST be IIFE with --global-name=ReactLove.
+  ESM or CJS bundles will not load in QuickJS.
+- Always use the CLI for builds: `ilovereact build`, not raw esbuild.
+- The Lua runtime files must be present locally for `love .` to work.
+  Run `ilovereact update` after any framework changes.
+
+=== SEE ALSO ===
+- 02-architecture/pipeline.txt - How the frame loop works
+- 02-architecture/painter.txt - Love2D painter details
+- 10-advanced/lua-runtime.txt - All 19 Lua modules
+- 10-advanced/debugging.txt - F12 inspector and console

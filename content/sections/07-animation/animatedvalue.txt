@@ -1,0 +1,221 @@
+=== METADATA ===
+title: AnimatedValue
+description: Mutable value container that drives animations through timing, spring, and interpolation methods.
+category: Animation
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: AnimatedValue, animation, timing, spring, interpolate, setValue, getValue, addListener, mutable
+related: useanimation.txt, easing.txt, composite.txt
+difficulty: intermediate
+
+=== OVERVIEW ===
+AnimatedValue is the core class of the animation system. It holds a mutable numeric value
+and provides methods to animate it (timing and spring), interpolate it to other ranges, and
+listen for changes. When an animation is active, the value updates every frame and notifies
+all listeners.
+
+AnimatedValue instances are typically created via the useAnimation hook, which handles React
+lifecycle integration. You can also create them directly for non-React usage.
+
+=== API / SYNTAX ===
+Constructor:
+  new AnimatedValue(initialValue: number)
+
+Methods:
+
+  getValue(): number
+    Returns the current numeric value.
+
+  setValue(value: number): void
+    Immediately sets the value. Stops any active animation first. Notifies all listeners.
+
+  addListener(callback: (value: number) => void): () => void
+    Registers a callback that fires whenever the value changes (from animation or setValue).
+    Returns an unsubscribe function.
+
+  timing(config: TimingConfig): Animation
+    Creates a timing-based animation. Returns an Animation object with start() and stop().
+
+    TimingConfig:
+      toValue: number              Target value
+      duration?: number            Duration in milliseconds (default: 300)
+      easing?: EasingFunction      Easing function (default: Easing.easeInOut)
+      delay?: number               Delay before animation starts (default: 0)
+
+  spring(config: SpringConfig): Animation
+    Creates a physics-based spring animation. Returns an Animation object.
+
+    SpringConfig:
+      toValue: number              Target value
+      stiffness?: number           Spring stiffness (default: 100)
+      damping?: number             Damping coefficient (default: 10)
+      mass?: number                Mass of the object (default: 1)
+      velocity?: number            Initial velocity (default: 0)
+      restThreshold?: number       Threshold for considering the spring at rest (default: 0.001)
+
+  interpolate(config: InterpolationConfig): number | string
+    Maps the current value through input/output ranges. Returns the interpolated result.
+
+    InterpolationConfig:
+      inputRange: number[]           Input values to map from (ascending)
+      outputRange: number[] | string[]  Output values to map to (same length as inputRange)
+      extrapolate?: 'clamp' | 'extend'  Behavior outside inputRange (default: 'extend')
+
+    When outputRange contains strings (e.g., color values in "rgba(...)" format), color
+    interpolation is performed automatically.
+
+Animation interface:
+  start(callback?: (result: { finished: boolean }) => void): void
+    Starts the animation. Optional callback fires when animation completes.
+    result.finished is true if animation completed naturally, false if stopped.
+
+  stop(): void
+    Stops the animation at its current value.
+
+=== EXAMPLES ===
+Example 1: Basic timing animation
+---
+import { useEffect } from 'react';
+import { useAnimation, Box, Easing } from '@ilovereact/core';
+
+function SlideIn() {
+  const [xAnim, xValue] = useAnimation(-200);
+
+  useEffect(() => {
+    xAnim.timing({
+      toValue: 0,
+      duration: 600,
+      easing: Easing.easeOut,
+    }).start();
+  }, [xAnim]);
+
+  return (
+    <Box style={{
+      width: 100,
+      height: 100,
+      backgroundColor: '#89b4fa',
+      transform: { translateX: xValue },
+    }} />
+  );
+}
+---
+Platforms: All
+
+Example 2: Spring animation
+---
+import { useEffect, useState } from 'react';
+import { useAnimation, Box } from '@ilovereact/core';
+
+function BounceBox() {
+  const [scaleAnim, scaleValue] = useAnimation(1);
+  const [pressed, setPressed] = useState(false);
+
+  useEffect(() => {
+    scaleAnim.spring({
+      toValue: pressed ? 0.9 : 1.0,
+      stiffness: 300,
+      damping: 15,
+    }).start();
+  }, [pressed, scaleAnim]);
+
+  return (
+    <Box
+      style={{
+        width: 100,
+        height: 100,
+        backgroundColor: '#f38ba8',
+        transform: { scaleX: scaleValue, scaleY: scaleValue },
+      }}
+      onClick={() => setPressed(!pressed)}
+    />
+  );
+}
+---
+Platforms: All
+
+Example 3: Interpolation
+---
+import { useAnimation, Box, Text } from '@ilovereact/core';
+
+function ProgressLabel() {
+  const [progress, progressValue] = useAnimation(0);
+
+  // Interpolate 0-1 to color
+  const color = progress.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: ['rgba(243, 139, 168, 1)', 'rgba(249, 226, 175, 1)', 'rgba(166, 227, 161, 1)'],
+  });
+
+  // Interpolate 0-1 to percentage text width
+  const barWidth = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 300],
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <Box style={{ width: 300, height: 30 }}>
+      <Box style={{
+        width: barWidth as number,
+        height: '100%',
+        backgroundColor: color as string,
+        borderRadius: 4,
+      }} />
+    </Box>
+  );
+}
+---
+Platforms: All
+
+Example 4: Chained animations with callback
+---
+import { useEffect } from 'react';
+import { useAnimation, Box } from '@ilovereact/core';
+
+function ChainedAnimation() {
+  const [xAnim, xValue] = useAnimation(0);
+  const [yAnim, yValue] = useAnimation(0);
+
+  useEffect(() => {
+    xAnim.timing({ toValue: 200, duration: 500 }).start(({ finished }) => {
+      if (finished) {
+        yAnim.timing({ toValue: 200, duration: 500 }).start();
+      }
+    });
+  }, [xAnim, yAnim]);
+
+  return (
+    <Box style={{
+      width: 50,
+      height: 50,
+      backgroundColor: '#cba6f7',
+      transform: { translateX: xValue, translateY: yValue },
+    }} />
+  );
+}
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+Web: Animations run on requestAnimationFrame. Value updates are batched so components
+re-render at most once per frame.
+
+Love2D: Uses setTimeout at ~60fps as a fallback. The animation values drive style props
+that are sent to the Lua painter each frame.
+
+All platforms: The shared animation frame loop efficiently manages all active animations.
+When no animations are running, the loop stops to avoid wasting CPU.
+
+=== CRITICAL RULES ===
+- setValue() stops any active animation before setting the value
+- Starting a new animation via start() automatically stops any previously running animation on the same AnimatedValue
+- The start() callback receives { finished: false } when stop() is called
+- InterpolationConfig inputRange must be in ascending order
+- inputRange and outputRange must have the same length (minimum 2 elements)
+- Color interpolation only works with "rgba(...)" format strings
+- AnimatedValue is mutable -- it does not trigger React re-renders on its own. Use useAnimation hook for React integration.
+
+=== SEE ALSO ===
+- useanimation.txt -- React hook that wraps AnimatedValue
+- easing.txt -- Easing functions for timing animations
+- composite.txt -- Combining multiple animations
+- usespring.txt -- Convenience hook for spring transitions

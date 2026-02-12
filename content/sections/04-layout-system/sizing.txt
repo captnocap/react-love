@@ -1,0 +1,114 @@
+=== METADATA ===
+title: Width, Height, and Min/Max Sizing
+description: Sizing properties for controlling element dimensions in iLoveReact.
+category: Layout
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: width, height, minWidth, minHeight, maxWidth, maxHeight, aspectRatio, sizing, dimensions, percentage, pixels
+related: flexbox.txt, spacing.txt, critical-rules.txt
+difficulty: beginner
+
+=== OVERVIEW ===
+Every element in iLoveReact has explicit sizing control through width, height, and their
+min/max variants. Values can be numbers (interpreted as pixels on Love2D/web, or character
+cells on grid targets) or percentage strings like '100%' or '50%'. Unlike the web, Box
+elements in iLoveReact have no intrinsic width -- if you do not specify a width, it is
+effectively zero unless flexGrow or alignItems: 'stretch' provides one.
+
+Root containers must always use width: '100%', height: '100%' to fill the viewport. This
+is the most common mistake in iLoveReact development and is enforced by the linter. Using
+flexGrow: 1 on the root does not work because there is no parent container to grow into.
+
+=== API / SYNTAX ===
+Sizing style properties:
+
+  width: number | string
+    Width in pixels (number) or percentage of parent ('50%', '100%').
+    Box nodes have zero intrinsic width. Text nodes have intrinsic width from font measurement.
+
+  height: number | string
+    Height in pixels (number) or percentage of parent.
+    Box nodes have zero intrinsic height. Text nodes have intrinsic height from fontSize.
+
+  minWidth: number | string
+    Minimum width constraint. The element will not shrink below this value.
+
+  minHeight: number | string
+    Minimum height constraint.
+
+  maxWidth: number | string
+    Maximum width constraint. The element will not grow beyond this value.
+
+  maxHeight: number | string
+    Maximum height constraint.
+
+  aspectRatio: number
+    Maintains a width-to-height ratio. For example, aspectRatio: 16/9 with width: 320
+    produces height: 180. If only one dimension is set, the other is computed from the ratio.
+
+=== EXAMPLES ===
+Example 1: Root container filling viewport
+---
+<Box style={{ width: '100%', height: '100%', backgroundColor: '#1e1e2e' }}>
+  <Text style={{ fontSize: 20, color: '#cdd6f4' }}>Full viewport</Text>
+</Box>
+---
+Platforms: All
+
+Example 2: Fixed-size box
+---
+<Box style={{ width: 200, height: 100, backgroundColor: '#89b4fa', borderRadius: 8 }} />
+---
+Platforms: All
+
+Example 3: Percentage-based sizing
+---
+<Box style={{ width: '100%', height: '100%' }}>
+  <Box style={{ width: '50%', height: '30%', backgroundColor: '#a6e3a1' }} />
+</Box>
+---
+Platforms: All
+
+Example 4: Min/max constraints
+---
+<Box style={{
+  width: '80%',
+  minWidth: 200,
+  maxWidth: 600,
+  height: 100,
+  backgroundColor: '#f9e2af',
+}} />
+---
+Platforms: All
+
+Example 5: Aspect ratio
+---
+<Box style={{
+  width: 320,
+  aspectRatio: 16 / 9,
+  backgroundColor: '#cba6f7',
+  borderRadius: 8,
+}} />
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+Love2D: Pixel units. The canvas has a fixed resolution set in conf.lua (typically 1280x720
+or 1920x1080). Percentage values are relative to the parent container's computed size.
+
+Web: Maps directly to CSS width/height. Pixel values become CSS pixels. Percentage strings
+pass through as-is.
+
+Grid targets: Number values represent character cells, not pixels. A width of 40 means 40
+characters wide. Percentage values work the same way -- relative to the parent's cell count.
+
+=== CRITICAL RULES ===
+- Root containers MUST use width: '100%', height: '100%' -- NOT flexGrow: 1
+- Box nodes have zero intrinsic width and height -- always specify dimensions or use flex sizing
+- Text nodes have intrinsic dimensions based on fontSize and content -- but you still MUST set fontSize
+- Pre-compute grid dimensions rather than relying on child content to infer container size
+- Percentage values are relative to the parent's computed dimension, not the viewport (unless the parent is the root)
+
+=== SEE ALSO ===
+- flexbox.txt -- Flexbox layout and flexGrow/flexShrink
+- spacing.txt -- Padding and margin affect effective size
+- critical-rules.txt -- Root sizing and other critical rules

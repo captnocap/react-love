@@ -1,0 +1,112 @@
+=== METADATA ===
+title: Animation System
+description: Overview of the iLoveReact animation system including animated values, timing, springs, easing, and composite animations.
+category: Animation
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: animation, AnimatedValue, timing, spring, easing, parallel, sequence, stagger, loop, useAnimation, useSpring, useTransition
+related: animatedvalue.txt, useanimation.txt, usespring.txt, usetransition.txt, easing.txt, composite.txt
+difficulty: intermediate
+
+=== OVERVIEW ===
+iLoveReact includes a complete animation system built on the AnimatedValue class. It provides
+timing-based animations (with easing functions), physics-based spring animations, and
+composite animations (parallel, sequence, stagger, loop). Three React hooks make it easy to
+integrate animations into components: useAnimation for full control, useSpring for automatic
+spring transitions, and useTransition for automatic timing-based transitions.
+
+The animation system works in both web mode (using requestAnimationFrame) and native mode
+(falling back to setTimeout at ~60fps when requestAnimationFrame is unavailable). All active
+animations share a single frame loop for efficiency. Animations are batched to avoid
+excessive re-renders.
+
+=== API / SYNTAX ===
+All animation APIs are imported from '@ilovereact/core':
+
+  import {
+    AnimatedValue,
+    useAnimation,
+    useSpring,
+    useTransition,
+    Easing,
+    parallel,
+    sequence,
+    stagger,
+    loop,
+  } from '@ilovereact/core';
+
+Core types:
+  Animation: { start(callback?), stop() }
+  TimingConfig: { toValue, duration?, easing?, delay? }
+  SpringConfig: { toValue, stiffness?, damping?, mass?, velocity?, restThreshold? }
+  InterpolationConfig: { inputRange, outputRange, extrapolate? }
+  EasingFunction: (t: number) => number
+
+=== EXAMPLES ===
+Example 1: Fade-in animation
+---
+import { useEffect } from 'react';
+import { useAnimation, Box, Text } from '@ilovereact/core';
+
+function FadeIn({ children }: { children: React.ReactNode }) {
+  const [opacity, opacityValue] = useAnimation(0);
+
+  useEffect(() => {
+    opacity.timing({ toValue: 1, duration: 500 }).start();
+  }, [opacity]);
+
+  return (
+    <Box style={{ width: '100%', height: '100%', opacity: opacityValue }}>
+      {children}
+    </Box>
+  );
+}
+---
+Platforms: All
+
+Example 2: Spring animation on state change
+---
+import { useState } from 'react';
+import { useSpring, Box, Text } from '@ilovereact/core';
+
+function ToggleBox() {
+  const [expanded, setExpanded] = useState(false);
+  const width = useSpring(expanded ? 300 : 100, { stiffness: 200, damping: 20 });
+
+  return (
+    <Box style={{ width: '100%', height: '100%', padding: 20 }}>
+      <Box
+        style={{ width, height: 100, backgroundColor: '#89b4fa', borderRadius: 8 }}
+        onClick={() => setExpanded(!expanded)}
+      />
+    </Box>
+  );
+}
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+Web: Uses requestAnimationFrame for the animation loop. Batched state updates align with
+browser rendering frames.
+
+Love2D: Falls back to setTimeout at ~60fps (1000/60 ms intervals). Animations run inside
+the QuickJS JavaScript engine, and updated style values are sent to the Lua renderer each
+frame.
+
+Grid targets: Same setTimeout fallback. Animation granularity depends on the target's
+refresh rate (e.g., terminal refresh is typically 30-60fps).
+
+=== CRITICAL RULES ===
+- AnimatedValue.setValue() stops any active animation before setting the value
+- Starting a new animation on an AnimatedValue automatically stops the previous one
+- useAnimation cleanup stops active animations on unmount
+- useSpring and useTransition skip animation on first render (value starts at target)
+- Composite animations (parallel, sequence, etc.) return Animation objects with start/stop
+- Animation callbacks receive { finished: boolean } -- false if stop() was called
+
+=== SEE ALSO ===
+- animatedvalue.txt -- AnimatedValue class reference
+- useanimation.txt -- Primary animation hook
+- usespring.txt -- Automatic spring transitions
+- usetransition.txt -- Automatic timing transitions
+- easing.txt -- Easing function library
+- composite.txt -- Parallel, sequence, stagger, loop

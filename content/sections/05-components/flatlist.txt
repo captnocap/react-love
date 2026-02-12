@@ -1,0 +1,148 @@
+=== METADATA ===
+title: FlatList
+description: Virtualized scrollable list that renders only visible items for efficient large dataset display.
+category: Components
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: flat list, list, scroll, virtualized, performance, infinite scroll, grid
+related: ScrollView, Table
+difficulty: intermediate
+
+=== OVERVIEW ===
+FlatList is a virtualized scrollable list component that renders only items visible within the scroll viewport plus a configurable buffer zone. It uses spacer elements above and below the visible window to maintain correct total scroll height without mounting every item in the data array.
+
+FlatList supports vertical and horizontal scrolling, multi-column grid layouts, inverted lists, infinite scrolling via `onEndReached`, and imperative scrolling methods. It delegates all scrolling behavior to the ScrollView component internally. FlatList accepts a `ref` for imperative control via `scrollToIndex` and `scrollToOffset`.
+
+=== API / SYNTAX ===
+Import: import { FlatList } from '@ilovereact/core';
+
+Usage:
+```tsx
+<FlatList
+  data={items}
+  renderItem={({ item, index }) => (
+    <Box style={{ height: 50, padding: 8 }}>
+      <Text style={{ fontSize: 14 }}>{item.name}</Text>
+    </Box>
+  )}
+  itemHeight={50}
+  style={{ height: 400 }}
+/>
+```
+
+FlatListProps<T>:
+
+| Prop                   | Type                                                  | Default  | Description                                        |
+|------------------------|-------------------------------------------------------|----------|----------------------------------------------------|
+| data                   | T[]                                                   | (required)| Array of items to render                          |
+| renderItem             | (info: { item: T; index: number }) => ReactNode       | (required)| Render function for each item                     |
+| keyExtractor           | (item: T, index: number) => string                    | -        | Unique key for each item (defaults to index)       |
+| horizontal             | boolean                                               | false    | Enable horizontal scrolling                        |
+| itemHeight             | number                                                | -        | Fixed item height (for vertical lists)             |
+| itemWidth              | number                                                | -        | Fixed item width (for horizontal lists)            |
+| estimatedItemSize      | number                                                | 50       | Estimated item size when exact size is unknown     |
+| onEndReached           | () => void                                            | -        | Called when scroll nears the end of the list       |
+| onEndReachedThreshold  | number                                                | 0.5      | Distance from end (in viewports) to trigger        |
+| onScroll               | (event: ScrollEvent) => void                          | -        | Called on every scroll position change              |
+| ListHeaderComponent    | ReactNode                                             | -        | Component rendered before the first item           |
+| ListFooterComponent    | ReactNode                                             | -        | Component rendered after the last item             |
+| ListEmptyComponent     | ReactNode                                             | -        | Component rendered when data is empty              |
+| ItemSeparatorComponent | ReactNode                                             | -        | Component rendered between items                   |
+| style                  | Style                                                 | -        | Outer ScrollView container style                   |
+| contentContainerStyle  | Style                                                 | -        | Inner content container style                      |
+| initialNumToRender     | number                                                | 10       | Number of items to render on first mount           |
+| windowSize             | number                                                | 5        | Number of viewports to keep rendered (buffer)      |
+| maxToRenderPerBatch    | number                                                | 10       | Max items to render per batch update               |
+| inverted               | boolean                                               | false    | Reverses the item order                            |
+| numColumns             | number                                                | -        | Number of columns for grid layout                  |
+
+FlatListRef (via React.forwardRef):
+
+| Method         | Signature                                              | Description                           |
+|----------------|--------------------------------------------------------|---------------------------------------|
+| scrollToIndex  | (params: { index: number; animated?: boolean }) => void| Scroll to a specific item by index    |
+| scrollToOffset | (params: { offset: number; animated?: boolean }) => void| Scroll to a specific pixel offset    |
+
+ScrollEvent type:
+```ts
+interface ScrollEvent {
+  scrollX: number;
+  scrollY: number;
+  contentWidth: number;
+  contentHeight: number;
+}
+```
+
+=== EXAMPLES ===
+Example 1: Basic vertical list
+---
+```tsx
+const items = Array.from({ length: 1000 }, (_, i) => ({ id: String(i), title: `Item ${i}` }));
+
+<FlatList
+  data={items}
+  renderItem={({ item }) => (
+    <Box style={{ height: 40, padding: 8, borderBottomWidth: 1, borderColor: '#334155' }}>
+      <Text style={{ fontSize: 12, color: '#e2e8f0' }}>{item.title}</Text>
+    </Box>
+  )}
+  keyExtractor={(item) => item.id}
+  itemHeight={40}
+  style={{ height: 300, width: '100%' }}
+/>
+```
+---
+Platforms: All
+
+Example 2: Grid layout with numColumns
+---
+```tsx
+<FlatList
+  data={gridItems}
+  renderItem={({ item }) => (
+    <Box style={{ height: 80, flexGrow: 1, flexBasis: 0, margin: 4, backgroundColor: '#1e293b', borderRadius: 6 }}>
+      <Text style={{ fontSize: 11, color: '#94a3b8' }}>{item.label}</Text>
+    </Box>
+  )}
+  numColumns={3}
+  itemHeight={80}
+  style={{ height: 400, width: '100%' }}
+/>
+```
+---
+Platforms: All
+
+Example 3: Infinite scroll with onEndReached
+---
+```tsx
+const listRef = useRef<FlatListRef>(null);
+
+<FlatList
+  ref={listRef}
+  data={messages}
+  renderItem={({ item }) => <MessageRow message={item} />}
+  itemHeight={60}
+  onEndReached={() => loadMore()}
+  onEndReachedThreshold={0.8}
+  ListEmptyComponent={<Text style={{ fontSize: 14, color: '#64748b' }}>No messages</Text>}
+  style={{ height: '100%', width: '100%' }}
+/>
+```
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+- FlatList wraps ScrollView internally. All scrolling behavior, including native Love2D scroll events, is handled by ScrollView.
+- In grid mode (`numColumns > 1`), items are laid out in rows of N columns. Incomplete last rows are filled with empty spacer Boxes.
+- The `inverted` prop reverses the data array order. Virtualization spacers work correctly with inversion because the data is reversed before range calculation.
+- `onEndReached` fires at most once per data length change. When the data array changes length, the guard resets.
+- `windowSize` controls the buffer: `(windowSize - 1) / 2` viewports are rendered above and below the visible area. The default of 5 means 2 viewports of buffer on each side.
+
+=== CRITICAL RULES ===
+- FlatList MUST have an explicit `height` (or parent with known height) in its style. Without it, the scroll container collapses and virtualization breaks.
+- For best virtualization performance, provide `itemHeight` (vertical) or `itemWidth` (horizontal). Without these, `estimatedItemSize` (default: 50) is used, which may cause visual jumping.
+- The `renderItem` function should return elements with a consistent, fixed height matching `itemHeight`. Variable-height items will cause virtualization misalignment.
+- `keyExtractor` defaults to using the array index as a string. For data that changes order or gets inserted/removed, always provide a stable `keyExtractor`.
+
+=== SEE ALSO ===
+- ScrollView
+- Table

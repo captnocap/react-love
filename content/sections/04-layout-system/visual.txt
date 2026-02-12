@@ -1,0 +1,230 @@
+=== METADATA ===
+title: Visual Styling
+description: Background colors, borders, border radius, shadows, gradients, opacity, and other visual properties.
+category: Layout
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: backgroundColor, borderRadius, borderWidth, borderColor, opacity, overflow, zIndex, shadow, gradient, outline, visibility
+related: text-styling.txt, sizing.txt, spacing.txt
+difficulty: beginner
+
+=== OVERVIEW ===
+iLoveReact provides a comprehensive set of visual styling properties for Box elements.
+These include background colors, border styling (width, color, radius with per-corner and
+per-side control), box shadows, linear gradients, opacity, overflow clipping, z-index
+stacking, outlines, and visibility toggling.
+
+Colors can be specified as CSS strings ("#ff0000", "rgba(255, 0, 0, 0.5)") or as Love2D-style
+number arrays [r, g, b, a] where each component is 0-1. The Color type accepts both formats
+and the renderer converts as needed for each target.
+
+=== API / SYNTAX ===
+Color type:
+  type Color = string | [number, number, number, number?]
+
+  String format: "#ff0000", "rgba(255, 0, 0, 0.5)", "red"
+  Array format: [1, 0, 0, 1] (Love2D-style, 0-1 range, alpha optional)
+
+Background:
+
+  backgroundColor: Color
+    Fills the element background with a solid color.
+
+  backgroundGradient: {
+    direction: 'horizontal' | 'vertical' | 'diagonal',
+    colors: [Color, Color]
+  }
+    Linear gradient background. Takes precedence over backgroundColor when set.
+    'horizontal' goes left to right, 'vertical' top to bottom, 'diagonal' top-left to
+    bottom-right.
+
+Border:
+
+  borderWidth: number
+    Sets border width on all sides. Requires borderColor to be visible.
+
+  borderColor: Color
+    Color of the border. Only visible when borderWidth > 0.
+
+  borderRadius: number
+    Rounds all four corners uniformly.
+
+  Per-side border width:
+    borderTopWidth: number
+    borderRightWidth: number
+    borderBottomWidth: number
+    borderLeftWidth: number
+
+  Per-side border color:
+    borderTopColor: Color
+    borderRightColor: Color
+    borderBottomColor: Color
+    borderLeftColor: Color
+
+  Per-corner border radius:
+    borderTopLeftRadius: number
+    borderTopRightRadius: number
+    borderBottomLeftRadius: number
+    borderBottomRightRadius: number
+
+Shadow:
+
+  shadowColor: Color
+    Shadow color. If not set, no shadow is rendered.
+
+  shadowOffsetX: number
+    Horizontal shadow offset (default: 0).
+
+  shadowOffsetY: number
+    Vertical shadow offset (default: 0).
+
+  shadowBlur: number
+    Blur radius for the shadow (default: 0).
+
+Outline:
+
+  outlineColor: Color
+    Color of the outline. Outlines render outside the element border.
+
+  outlineWidth: number
+    Width of the outline in pixels (default: 1 when outlineColor is set).
+
+  outlineOffset: number
+    Gap between the element border and the outline.
+
+Stacking and visibility:
+
+  opacity: number
+    Element transparency, 0 (fully transparent) to 1 (fully opaque).
+
+  overflow: 'visible' | 'hidden' | 'scroll'
+    Controls whether child content that exceeds the element bounds is visible,
+    clipped, or scrollable.
+
+  zIndex: number
+    Stacking order. Higher values render on top of lower values.
+
+  visibility: 'visible' | 'hidden'
+    Hides the element visually but it still occupies space in layout.
+    Unlike display: 'none', hidden elements are not removed from the layout tree.
+
+  display: 'flex' | 'none'
+    Set to 'none' to completely remove from layout (no space occupied).
+
+=== EXAMPLES ===
+Example 1: Colored box with rounded corners
+---
+<Box style={{
+  width: 200,
+  height: 100,
+  backgroundColor: '#89b4fa',
+  borderRadius: 12,
+}} />
+---
+Platforms: All
+
+Example 2: Box with border
+---
+<Box style={{
+  width: 200,
+  height: 100,
+  borderWidth: 2,
+  borderColor: '#cba6f7',
+  borderRadius: 8,
+}} />
+---
+Platforms: All
+
+Example 3: Per-corner border radius
+---
+<Box style={{
+  width: 200,
+  height: 100,
+  backgroundColor: '#f38ba8',
+  borderTopLeftRadius: 20,
+  borderTopRightRadius: 20,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+}} />
+---
+Platforms: All
+
+Example 4: Box shadow
+---
+<Box style={{
+  width: 200,
+  height: 100,
+  backgroundColor: '#cdd6f4',
+  shadowColor: 'rgba(0, 0, 0, 0.3)',
+  shadowOffsetX: 4,
+  shadowOffsetY: 4,
+  shadowBlur: 8,
+  borderRadius: 8,
+}} />
+---
+Platforms: love2d, web
+
+Example 5: Linear gradient
+---
+<Box style={{
+  width: 300,
+  height: 100,
+  backgroundGradient: {
+    direction: 'horizontal',
+    colors: ['#f38ba8', '#89b4fa'],
+  },
+  borderRadius: 8,
+}} />
+---
+Platforms: love2d, web
+
+Example 6: Opacity and z-index
+---
+<Box style={{ width: 200, height: 200, position: 'relative' }}>
+  <Box style={{
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    top: 0,
+    left: 0,
+    backgroundColor: '#f38ba8',
+    zIndex: 1,
+  }} />
+  <Box style={{
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    top: 50,
+    left: 50,
+    backgroundColor: '#89b4fa',
+    opacity: 0.7,
+    zIndex: 2,
+  }} />
+</Box>
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+Love2D: All visual properties are rendered by painter.lua. Shadows use Love2D shader-based
+blur. Gradients are drawn as mesh quads. Overflow 'hidden' uses stencil clipping.
+
+Web: Properties map to CSS equivalents via styleToCSS(). shadowColor/Offset/Blur become
+CSS box-shadow. backgroundGradient becomes CSS linear-gradient. Overflow maps directly to
+CSS overflow.
+
+Grid targets: Visual styling is limited. backgroundColor maps to cell background colors.
+Borders render as character art (box-drawing characters). Shadows and gradients are
+generally not supported on character-grid targets.
+
+=== CRITICAL RULES ===
+- borderWidth alone does not produce a visible border -- you must also set borderColor
+- backgroundGradient takes precedence over backgroundColor
+- overflow: 'hidden' clips children that extend beyond the element bounds
+- visibility: 'hidden' hides the element but it still occupies space (use display: 'none' to remove from layout)
+- Shadow rendering depends on the target platform (not available on all grid targets)
+- Colors can use either string format ("#ff0000") or array format ([1, 0, 0, 1])
+
+=== SEE ALSO ===
+- text-styling.txt -- Text-specific visual properties
+- sizing.txt -- Element dimensions
+- spacing.txt -- Padding and margin
+- transforms.txt -- Transform system

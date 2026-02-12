@@ -1,0 +1,98 @@
+=== METADATA ===
+title: CLI Reference
+description: Overview of the ilovereact CLI tool and its commands.
+category: CLI
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: cli, ilovereact, init, dev, build, update, lint, screenshot, commands
+related: init.txt, dev.txt, build.txt, update.txt, lint.txt, screenshot.txt
+difficulty: beginner
+
+=== OVERVIEW ===
+The ilovereact CLI is the primary tool for creating, developing, building, and testing
+iLoveReact projects. It encodes correct esbuild flags, enforces lint gates before builds,
+handles runtime file placement, and produces distribution packages. You should always use
+the CLI instead of running raw esbuild commands directly -- manual esbuild will use wrong
+flags, skip linting, and produce broken builds.
+
+The CLI manages the distinction between framework files (lua/, lib/, ilovereact/) and
+project-specific files (src/, main.lua, conf.lua). Framework files are synced from the CLI
+runtime; project files are yours and never touched by CLI commands.
+
+=== API / SYNTAX ===
+Available commands:
+
+  ilovereact init <name>
+    Create a new iLoveReact project.
+    See: init.txt
+
+  ilovereact dev
+    Start esbuild in watch mode for live development.
+    See: dev.txt
+
+  ilovereact build [target] [flags]
+    Bundle JS or produce distribution packages.
+    Targets: (none), dist:love, dist:terminal
+    Flags: --no-update, --debug
+    See: build.txt
+
+  ilovereact update
+    Sync framework runtime files into the current project.
+    See: update.txt
+
+  ilovereact lint
+    Run the static layout linter on src/ files.
+    See: lint.txt
+
+  ilovereact screenshot [--output path]
+    Capture a headless screenshot of the current app.
+    See: screenshot.txt
+
+=== EXAMPLES ===
+Example 1: Typical new project workflow
+---
+ilovereact init my-app
+cd my-app
+ilovereact dev
+# In another terminal:
+love .
+---
+Platforms: love2d
+
+Example 2: Build and verify workflow
+---
+ilovereact lint
+ilovereact screenshot --output /tmp/preview.png
+ilovereact build dist:love
+---
+Platforms: love2d
+
+Example 3: After framework changes
+---
+# In monorepo root:
+make cli-setup
+# In project directory:
+cd examples/storybook
+ilovereact update
+ilovereact build
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+The CLI currently covers Love2D scaffolding/builds and terminal distribution. For grid
+target dev builds (terminal, CC, Neovim, Hammerspoon, AwesomeWM), use the npm scripts
+in the root package.json -- these are the only cases where direct esbuild is appropriate.
+
+=== CRITICAL RULES ===
+- Always use the CLI instead of running esbuild directly
+- Run `ilovereact lint` after every component change
+- Run `ilovereact screenshot` to visually verify layouts
+- After editing framework source-of-truth files, run `make cli-setup` then `ilovereact update`
+- Never edit cli/runtime/ or project lua/ilovereact/ directly -- those are disposable copies
+
+=== SEE ALSO ===
+- init.txt -- Create new projects
+- dev.txt -- Watch mode development
+- build.txt -- Building and distribution
+- update.txt -- Syncing framework files
+- lint.txt -- Static layout linter
+- screenshot.txt -- Headless screenshot capture

@@ -1,0 +1,133 @@
+=== METADATA ===
+title: Event System
+description: How input events are captured, dispatched, and bubble through the component tree
+category: Advanced
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: events, input, click, keyboard, touch, gamepad, drag, hover, bubbling, hit test
+related: lua-runtime, pipeline, reconciler
+difficulty: advanced
+
+=== OVERVIEW ===
+iLoveReact's event system handles mouse clicks, keyboard input, touch gestures, gamepad
+buttons, wheel scrolling, hover tracking, and drag operations. In Love2D native mode,
+Love2D callbacks forward raw input to the Lua runtime, which performs hit testing
+against the computed layout tree, constructs bubble paths, and dispatches events to the
+JavaScript side where React event handlers are invoked.
+
+Events bubble up from the hit target to the root, following the node's ancestor chain.
+Each event object includes a bubblePath array and a stopPropagation() method.
+
+=== API / SYNTAX ===
+LoveEvent Interface:
+  type: string              - Event type name
+  targetId?: number         - ID of the node that was hit
+  x?: number                - Pointer X coordinate
+  y?: number                - Pointer Y coordinate
+  button?: number           - Mouse button (1=left, 2=right, 3=middle)
+  key?: string              - Keyboard key name
+  scancode?: string         - Physical key scancode
+  isRepeat?: boolean        - Whether this is a key repeat event
+  text?: string             - Text input content (from love.textinput)
+  deltaX?: number           - Wheel horizontal delta
+  deltaY?: number           - Wheel vertical delta
+  touchId?: number|string   - Touch point identifier
+  dx?: number               - Touch delta X
+  dy?: number               - Touch delta Y
+  pressure?: number         - Touch pressure (0-1)
+  gamepadButton?: string    - Gamepad button name
+  axis?: string             - Gamepad axis name
+  axisValue?: number        - Gamepad axis value (-1 to 1)
+  joystickId?: number       - Gamepad/joystick identifier
+  startX?: number           - Drag start X
+  startY?: number           - Drag start Y
+  totalDeltaX?: number      - Total drag delta X from start
+  totalDeltaY?: number      - Total drag delta Y from start
+  bubblePath?: number[]     - Array of node IDs from target to root
+  currentTarget?: number    - Current node in bubble chain
+  stopPropagation?: () => void - Stop event from bubbling further
+
+Box Event Handlers:
+  onClick          - Mouse press on the node
+  onRelease        - Mouse release on the node
+  onPointerEnter   - Pointer enters node bounds
+  onPointerLeave   - Pointer leaves node bounds
+  onKeyDown        - Key pressed (global broadcast)
+  onKeyUp          - Key released (global broadcast)
+  onTextInput      - Text character entered (global broadcast)
+  onWheel          - Scroll wheel moved
+  onTouchStart     - Touch point pressed
+  onTouchEnd       - Touch point released
+  onTouchMove      - Touch point moved
+  onGamepadPress   - Gamepad button pressed
+  onGamepadRelease - Gamepad button released
+  onGamepadAxis    - Gamepad axis moved
+  onDragStart      - Drag operation started (after threshold)
+  onDrag           - Drag in progress (continuous)
+  onDragEnd        - Drag operation ended (release)
+
+=== EXAMPLES ===
+Example 1: Event Flow (Native Mode)
+---
+When the user clicks at position (150, 200):
+
+  1. Love2D calls love.mousepressed(150, 200, 1)
+  2. ReactLove.mousepressed(150, 200, 1) is called
+  3. events.hitTest(root, 150, 200) walks the tree:
+     - For each node, check if (150, 200) is inside computed rect
+     - Respect overflow:hidden clipping
+     - Deepest matching node wins (most specific target)
+  4. events.buildBubblePath(hit) constructs [hitId, parentId, ..., rootId]
+  5. events.createEvent("click", hitId, 150, 200, 1, bubblePath) creates LoveEvent
+  6. pushEvent(event) sends the event to JavaScript
+  7. In JS, the handlerRegistry looks up which nodes have onClick handlers
+  8. For each node in bubblePath, if it has onClick, call it
+  9. If stopPropagation() is called, stop traversing
+
+  The entire flow happens synchronously within one frame.
+---
+Platforms: love2d
+
+Example 2: Drag Events
+---
+Drag operations use a threshold before activating:
+
+  1. mousepressed: events.startDrag(hitId, x, y) records start position
+  2. mousemoved: events.updateDrag(x, y) checks if threshold is crossed
+     - If distance > threshold: dispatch onDragStart, then onDrag
+     - Subsequent moves dispatch onDrag with dx, dy, totalDeltaX, totalDeltaY
+  3. mousereleased: events.endDrag(x, y) dispatches onDragEnd
+
+  While dragging, hover tracking is suspended to prevent unintended
+  pointer-enter/leave events on nodes the pointer moves over.
+---
+Platforms: love2d
+
+Example 3: Interaction Styles (hoverStyle / activeStyle)
+---
+Box supports hoverStyle and activeStyle props that apply instantly in Lua
+(0-frame latency, no round-trip to JS):
+
+  <Box
+    style={{ backgroundColor: '#1e293b' }}
+    hoverStyle={{ backgroundColor: '#334155' }}
+    activeStyle={{ backgroundColor: '#475569' }}
+  >
+    <Text style={{ fontSize: 14, color: '#f8fafc' }}>Hover me</Text>
+  </Box>
+
+The Lua runtime tracks hover/pressed state and applies style overlays
+directly on the node. If the node has a transition property, the
+animate module interpolates the change smoothly.
+---
+Platforms: love2d
+
+=== PLATFORM NOTES ===
+Love2D: Full event support (mouse, keyboard, touch, gamepad, drag).
+Web:    DOM events mapped by the web primitives. Hover/active via React state.
+Grid:   Keyboard events primarily. Mouse support varies by target.
+
+=== SEE ALSO ===
+- 12-api-reference/types.txt - LoveEvent type definition
+- 05-components/box.txt - Box event handler props
+- 05-components/pressable.txt - Higher-level interaction component
+- lua-runtime.txt - events.lua module details

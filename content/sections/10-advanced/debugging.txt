@@ -1,0 +1,121 @@
+=== METADATA ===
+title: Debugging
+description: Tools for inspecting layout, evaluating code, and diagnosing errors at runtime
+category: Advanced
+platforms: love2d
+keywords: debugging, inspector, f12, console, error overlay, useDebug, DebugOverlay
+related: lua-runtime, event-handling, performance
+difficulty: intermediate
+
+=== OVERVIEW ===
+iLoveReact provides several debugging tools for the Love2D target. The visual inspector
+(F12) overlays node boundaries and computed dimensions on the live UI. The interactive
+console (backtick key) lets you evaluate JavaScript or Lua expressions at runtime. The
+error overlay catches runtime errors and displays them with context. Additionally, React
+hooks (useDebug) and components (DebugOverlay) provide in-app debug data display.
+
+These tools are enabled by default in development and can be disabled for production
+builds by passing `inspector = false` to ReactLove.init().
+
+=== API / SYNTAX ===
+Keyboard Shortcuts (Love2D):
+  F12       - Toggle visual inspector
+  ` (backtick) - Toggle interactive console
+
+Inspector Features:
+  - Node boundary rectangles (colored outlines)
+  - Computed dimensions (width x height) displayed on hover
+  - Style property panel for the selected node
+  - Layout timing (ms per layout pass)
+  - Paint timing (ms per paint pass)
+  - Node count and tree depth
+
+Console Features:
+  - Evaluate JavaScript expressions via the QuickJS bridge
+  - Results displayed inline
+  - Command history
+  - Access to the live React tree state
+
+Error Overlay (errors.lua):
+  - Catches runtime errors from both JS and Lua
+  - Displays error message, source (js/lua/bridge), and context
+  - Renders on top of everything using raw love.graphics calls
+  - Click to dismiss individual errors
+  - Independent of the tree/layout/painter system
+
+React Debug Hooks and Components:
+  useDebug(key, data)       - Register debug data under a key
+  getDebugData()            - Read all registered debug data
+  registerDebug(key, data)  - Imperative registration
+  DebugOverlay              - Component that renders debug data on screen
+  DebugBox                  - Wrapper that shows its children's computed rect
+  useDebugOverlay()         - Hook to control DebugOverlay visibility
+
+=== EXAMPLES ===
+Example 1: Using the Visual Inspector
+---
+1. Run your Love2D app: love .
+2. Press F12 to toggle the inspector
+3. Move your mouse over UI elements:
+   - Node boundaries appear as colored outlines
+   - Computed rect (x, y, width, height) shown as a tooltip
+   - Style properties listed in a side panel
+4. Press F12 again to close
+
+The inspector runs entirely in Lua and does not affect React state
+or the JS runtime. It reads the computed tree directly.
+---
+Platforms: love2d
+
+Example 2: Using the Console
+---
+1. Press ` (backtick) to open the console
+2. Type a JavaScript expression and press Enter:
+   > document.title
+   > globalThis.__devState
+   > 2 + 2
+3. The result is displayed below the input
+4. Press ` again to close
+
+The console evaluates expressions via bridge:eval() in the QuickJS context.
+It has access to all globals defined by your bundle.
+---
+Platforms: love2d
+
+Example 3: Debug Hooks in Components
+---
+import { useDebug, DebugOverlay } from '@ilovereact/core';
+
+function GamePanel() {
+  const [fps, setFps] = useState(0);
+  useDebug('fps', fps);
+  useDebug('entities', entityCount);
+
+  return (
+    <Box style={{ width: '100%', height: '100%' }}>
+      {/* Your game UI */}
+      <DebugOverlay />
+    </Box>
+  );
+}
+
+-- useDebug registers key/value pairs that DebugOverlay renders
+-- as a floating panel. Useful for monitoring state without
+-- adding temporary Text nodes to your layout.
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+The F12 inspector and backtick console are Love2D-only features. They require
+the Lua runtime's inspector.lua and console.lua modules.
+
+The error overlay works in both native and canvas modes.
+
+useDebug and DebugOverlay work on all targets (they are React components).
+
+To disable all inspector/console features for production:
+  ReactLove.init({ inspector = false })
+
+=== SEE ALSO ===
+- lua-runtime.txt - inspector.lua, console.lua, errors.lua modules
+- 11-troubleshooting/common-errors.txt - Common error messages and solutions

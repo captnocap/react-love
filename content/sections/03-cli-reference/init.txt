@@ -1,0 +1,81 @@
+=== METADATA ===
+title: ilovereact init
+description: Create a new iLoveReact project with scaffolded structure and dependencies.
+category: CLI
+platforms: love2d
+keywords: init, create, new project, scaffold, template, setup
+related: dev.txt, build.txt, update.txt
+difficulty: beginner
+
+=== OVERVIEW ===
+The `ilovereact init` command creates a new iLoveReact project directory with the complete
+scaffolding needed to start development. It copies the project template, Lua runtime files,
+native libraries, and framework source packages from the CLI runtime directory, writes a
+package.json, and runs npm install.
+
+After init completes, you can immediately start development with `ilovereact dev` and
+`love .` in a second terminal.
+
+=== API / SYNTAX ===
+Usage:
+  ilovereact init <name>
+
+Arguments:
+  name    The project name. Creates a directory with this name in the current working directory.
+
+What it creates:
+  <name>/
+    src/
+      App.tsx          Starter application component
+      main.tsx         Entry point (renders App into the reconciler)
+    lua/               Lua runtime files (layout.lua, painter.lua, bridge_quickjs.lua, etc.)
+    lib/
+      libquickjs.so    QuickJS shared library for FFI bridge
+    ilovereact/
+      shared/          @ilovereact/core package source (primitives, hooks, animation)
+      native/          @ilovereact/native package source (reconciler host config)
+    main.lua           Love2D entry point
+    conf.lua           Love2D configuration (window size, title)
+    package.json       Project dependencies and scripts
+
+Dependencies installed:
+  react ^18.3.0
+  react-reconciler ^0.29.0
+  esbuild ^0.24.0 (dev)
+  @types/react ^18.3.0 (dev)
+  typescript ^5.5.0 (dev)
+
+=== EXAMPLES ===
+Example 1: Create a new project
+---
+ilovereact init my-game
+cd my-game
+ilovereact dev
+---
+Platforms: love2d
+
+Example 2: Create and immediately build
+---
+ilovereact init dashboard
+cd dashboard
+ilovereact build dist:love
+---
+Platforms: love2d
+
+=== PLATFORM NOTES ===
+The init command currently scaffolds for the Love2D target. The project structure includes
+the Lua runtime and QuickJS FFI bridge needed for Love2D rendering. For grid targets
+(terminal, Neovim, etc.), you would add the appropriate entry point and dependencies
+manually after initialization.
+
+=== CRITICAL RULES ===
+- The project name becomes the directory name -- it must not already exist
+- The CLI runtime directory must be populated first (run `make cli-setup` in the monorepo root)
+- If the runtime is missing, init will warn but still create the project structure
+- Never manually create project directories with mkdir + cp -- always use init
+- Project files (src/, main.lua, conf.lua) are yours to edit. Framework files (lua/, lib/, ilovereact/) are managed by the CLI and will be overwritten by `ilovereact update`
+
+=== SEE ALSO ===
+- dev.txt -- Start development after init
+- update.txt -- Sync framework files after changes
+- build.txt -- Build for distribution

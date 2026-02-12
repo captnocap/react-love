@@ -1,0 +1,166 @@
+=== METADATA ===
+title: Text-Specific Style Properties
+description: Styling properties for the Text primitive, including font, color, alignment, and decoration.
+category: Layout
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: color, fontSize, fontFamily, fontWeight, textAlign, textOverflow, textDecorationLine, lineHeight, letterSpacing, textShadow, text, font
+related: visual.txt, critical-rules.txt
+difficulty: beginner
+
+=== OVERVIEW ===
+The Text primitive has its own set of style properties for controlling typography. The most
+important rule in iLoveReact is that every Text element MUST have an explicit fontSize in
+its style. This is not optional -- the layout engine needs fontSize to measure text and
+compute layout, and the linter will block builds that violate this rule.
+
+Text styling covers font properties (size, family, weight), text layout (alignment,
+overflow, line height, letter spacing), text decoration (underline, strikethrough), and
+text shadow. Colors use the same Color type as visual styling (CSS strings or Love2D-style
+arrays).
+
+=== API / SYNTAX ===
+Text style properties:
+
+  color: Color
+    Text color. Accepts CSS strings ("#cdd6f4") or Love2D arrays ([0.8, 0.84, 0.96]).
+
+  fontSize: number (REQUIRED)
+    Font size in pixels (Love2D/web) or character scale (grid targets).
+    This property is MANDATORY on every Text element. The linter enforces this with the
+    'no-text-without-fontsize' rule.
+
+  fontFamily: string
+    Font family name. On Love2D, this must be a font file available in the project.
+    On web, it maps to CSS font-family.
+
+  fontWeight: 'normal' | 'bold' | number
+    Font weight. 'normal' is typically 400, 'bold' is 700. Numeric values (100-900)
+    are supported on web and Love2D (if the font file supports weight variants).
+
+  textAlign: 'left' | 'center' | 'right'
+    Horizontal text alignment within the Text element's bounds.
+    Default: 'left'
+
+  textOverflow: 'clip' | 'ellipsis'
+    How to handle text that overflows its container.
+    'clip': text is cut off at the boundary.
+    'ellipsis': text is truncated with "..." at the boundary.
+
+  textDecorationLine: 'none' | 'underline' | 'line-through'
+    Text decoration. 'underline' draws a line below the text, 'line-through' draws
+    a line through the middle.
+
+  lineHeight: number
+    Line height in pixels. Controls the vertical spacing between lines of text.
+    On web, this is converted to CSS line-height with 'px' units.
+
+  letterSpacing: number
+    Additional horizontal space between characters, in pixels.
+
+  textShadowColor: Color
+    Color of the text shadow. If not set, no text shadow is rendered.
+
+  textShadowOffsetX: number
+    Horizontal offset of the text shadow.
+
+  textShadowOffsetY: number
+    Vertical offset of the text shadow.
+
+=== EXAMPLES ===
+Example 1: Basic text with required fontSize
+---
+<Text style={{ fontSize: 16, color: '#cdd6f4' }}>Hello, world</Text>
+---
+Platforms: All
+
+Example 2: Styled heading
+---
+<Text style={{
+  fontSize: 32,
+  fontWeight: 'bold',
+  color: '#cba6f7',
+  textAlign: 'center',
+  letterSpacing: 2,
+}}>
+  Dashboard
+</Text>
+---
+Platforms: All
+
+Example 3: Text with decoration
+---
+<Text style={{
+  fontSize: 14,
+  color: '#a6adc8',
+  textDecorationLine: 'underline',
+}}>
+  Click here for details
+</Text>
+---
+Platforms: All
+
+Example 4: Multiline text with lineHeight
+---
+<Text style={{
+  fontSize: 14,
+  color: '#cdd6f4',
+  lineHeight: 22,
+}}>
+  {`This is a longer paragraph of text that demonstrates line height control. Each line has 22 pixels of vertical space.`}
+</Text>
+---
+Platforms: All
+
+Example 5: Text overflow with ellipsis
+---
+<Box style={{ width: 200 }}>
+  <Text style={{
+    fontSize: 14,
+    color: '#cdd6f4',
+    textOverflow: 'ellipsis',
+  }}>
+    {`This is a very long string that will be truncated with an ellipsis`}
+  </Text>
+</Box>
+---
+Platforms: All
+
+Example 6: Text shadow
+---
+<Text style={{
+  fontSize: 24,
+  color: '#cdd6f4',
+  textShadowColor: 'rgba(0, 0, 0, 0.5)',
+  textShadowOffsetX: 2,
+  textShadowOffsetY: 2,
+}}>
+  Shadow Text
+</Text>
+---
+Platforms: love2d, web
+
+=== PLATFORM NOTES ===
+Love2D: fontSize determines which Love2D Font object is used for rendering and measurement.
+fontFamily must correspond to a .ttf or .otf file accessible to the Love2D application.
+Text measurement is done via Love2D's Font:getWidth() and Font:getHeight() methods.
+
+Web: Text style properties map directly to CSS equivalents. fontSize becomes CSS font-size
+in pixels. lineHeight is converted to CSS with 'px' suffix. letterSpacing maps to CSS
+letter-spacing.
+
+Grid targets: fontSize is less meaningful in character-grid contexts -- text is always
+rendered at one character per cell. However, it is still required by the style system
+for consistency. fontWeight may map to bold terminal attributes where supported.
+
+=== CRITICAL RULES ===
+- Every Text element MUST have explicit fontSize -- builds will fail without it (linter rule: no-text-without-fontsize)
+- Do NOT mix literal text and JSX expressions in Text children -- use template literals instead (linter rule: no-mixed-text-children)
+  WRONG: <Text style={{ fontSize: 14 }}>Score: {score}</Text>
+  RIGHT: <Text style={{ fontSize: 14 }}>{`Score: ${score}`}</Text>
+- Do NOT use the block character (U+2588) in Text elements -- it renders as a font glyph, not a filled pixel (linter rule: no-block-char-in-text)
+- Text nodes have intrinsic dimensions from font measurement -- they do not need explicit width/height in most cases
+
+=== SEE ALSO ===
+- visual.txt -- Background and border styling for Box elements
+- critical-rules.txt -- All critical layout rules
+- flexbox.txt -- How text nodes participate in flex layout

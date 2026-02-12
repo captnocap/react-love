@@ -1,0 +1,88 @@
+=== METADATA ===
+title: Switch
+description: A toggle switch with on/off states, providing a sliding thumb on a colored track.
+category: Components
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: switch, toggle, on, off, boolean, form, input
+related: Checkbox, Radio
+difficulty: beginner
+
+=== OVERVIEW ===
+Switch is a toggle control that slides a thumb along a track to indicate an on/off state. The track changes color based on the current value, and the thumb moves to the left (off) or right (on) edge.
+
+Switch supports both controlled and uncontrolled modes. In controlled mode, pass `value` and respond to `onValueChange`. In uncontrolled mode, omit `value` and optionally set `defaultValue`. On web, the thumb animates with a CSS transition. In native mode, the thumb position is driven by flexbox `justifyContent`.
+
+=== API / SYNTAX ===
+Import: import { Switch } from '@ilovereact/core';
+
+Usage:
+```tsx
+<Switch
+  value={isEnabled}
+  onValueChange={(v) => setIsEnabled(v)}
+  trackColor={{ true: '#81b0ff', false: '#767577' }}
+/>
+```
+
+Props:
+
+| Prop         | Type                                    | Default                                | Description                             |
+|--------------|-----------------------------------------|----------------------------------------|-----------------------------------------|
+| value        | boolean                                 | -                                      | Controlled value. Omit for uncontrolled |
+| defaultValue | boolean                                 | false                                  | Initial value in uncontrolled mode      |
+| onValueChange| (value: boolean) => void                | -                                      | Called when the switch is toggled        |
+| disabled     | boolean                                 | false                                  | Disables interaction and dims opacity   |
+| style        | Style                                   | -                                      | Container style overrides               |
+| trackColor   | { true: Color; false: Color }           | { true: '#81b0ff', false: '#767577' }  | Track colors for on/off states          |
+| thumbColor   | Color                                   | '#f4f3f4'                              | Thumb circle color                      |
+| width        | number                                  | 50                                     | Total switch width in pixels            |
+| height       | number                                  | 28                                     | Total switch height in pixels           |
+
+=== EXAMPLES ===
+Example 1: Basic controlled switch
+---
+```tsx
+const [enabled, setEnabled] = useState(false);
+
+<Switch value={enabled} onValueChange={setEnabled} />
+```
+---
+Platforms: All
+
+Example 2: Uncontrolled with custom colors
+---
+```tsx
+<Switch
+  defaultValue={true}
+  trackColor={{ true: '#4ade80', false: '#ef4444' }}
+  thumbColor="#ffffff"
+  width={60}
+  height={32}
+/>
+```
+---
+Platforms: All
+
+Example 3: Disabled switch
+---
+```tsx
+<Switch value={true} disabled />
+```
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+- Web: Renders as nested `<div>` elements. The thumb uses `transition: left 0.2s ease` for smooth animation. Cursor changes to `not-allowed` when disabled.
+- Native (Love2D): Uses `Box` with `flexDirection: 'row'` and `justifyContent` set to `'end'` (on) or `'start'` (off) to position the thumb. No CSS transitions; position changes are instant unless combined with the animation system.
+- The thumb diameter is calculated as `height - 4` (2px padding on each side).
+- The border radius of the track is `height / 2`, creating a pill shape.
+
+=== CRITICAL RULES ===
+- Switch has a fixed pixel size. It does not stretch to fill its container by default. The `width` and `height` props control the track dimensions directly.
+- When `disabled` is true, opacity is set to 0.5 and click/toggle events are ignored.
+- In controlled mode, the component does not update visually unless the parent updates the `value` prop in response to `onValueChange`.
+
+=== SEE ALSO ===
+- Checkbox
+- Radio
+- Pressable

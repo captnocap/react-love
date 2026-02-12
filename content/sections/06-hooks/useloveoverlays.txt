@@ -1,0 +1,141 @@
+=== METADATA ===
+title: useLoveOverlays
+description: Position DOM overlays relative to Love2D entity coordinates in web mode.
+category: Hooks
+platforms: web
+keywords: useLoveOverlays, hook, overlay, DOM, canvas, position, web, coordinates, normalized
+related: uselove.txt, useloveevent.txt
+difficulty: advanced
+
+=== OVERVIEW ===
+useLoveOverlays positions DOM overlay elements based on Love2D entity coordinates received
+from the Lua runtime. This hook is only meaningful in web mode, where React controls both
+the Love2D canvas and surrounding DOM elements. It maps normalized coordinates (0-1) from
+the Lua runtime to pixel positions on the canvas DOM element.
+
+The hook listens for 'overlays' events from the bridge, which provide a list of entities
+with normalized coordinates. It uses a ResizeObserver on the canvas element to track its
+size and position, then computes DOM pixel coordinates for each overlay.
+
+=== API / SYNTAX ===
+Signature:
+  function useLoveOverlays(canvasRef: React.RefObject<HTMLCanvasElement | null>): Overlay[]
+
+Parameters:
+  canvasRef: React.RefObject<HTMLCanvasElement | null>
+    A React ref to the canvas element that Love2D renders into. Used to get the canvas
+    bounding rectangle for coordinate mapping.
+
+Returns:
+  Overlay[]
+
+Overlay interface:
+  interface Overlay {
+    id: string        // Unique identifier for the overlay entity
+    nx: number        // Normalized X coordinate (0-1, from Lua)
+    ny: number        // Normalized Y coordinate (0-1, from Lua)
+    px: number        // Pixel X coordinate in game space (from Lua)
+    py: number        // Pixel Y coordinate in game space (from Lua)
+    domX?: number     // Computed DOM X pixel position on the canvas
+    domY?: number     // Computed DOM Y pixel position on the canvas
+    [key: string]: any  // Additional data from the Lua side
+  }
+
+Coordinate mapping:
+  domX = nx * canvasRect.width
+  domY = ny * canvasRect.height
+
+=== EXAMPLES ===
+Example 1: Render name labels above entities
+---
+import { useRef } from 'react';
+import { useLoveOverlays, Box, Text } from '@ilovereact/core';
+
+function GameOverlays() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const overlays = useLoveOverlays(canvasRef);
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <canvas ref={canvasRef} width={1280} height={720} />
+      {overlays.map((overlay) => (
+        <div
+          key={overlay.id}
+          style={{
+            position: 'absolute',
+            left: overlay.domX,
+            top: overlay.domY,
+            transform: 'translate(-50%, -100%)',
+            pointerEvents: 'none',
+          }}
+        >
+          <span style={{ color: 'white', fontSize: 12 }}>
+            {overlay.name || overlay.id}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+---
+Platforms: web
+
+Example 2: Tooltip on hover
+---
+import { useRef, useState } from 'react';
+import { useLoveOverlays } from '@ilovereact/core';
+
+function EntityTooltips() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const overlays = useLoveOverlays(canvasRef);
+  const [hovered, setHovered] = useState<string | null>(null);
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <canvas ref={canvasRef} width={1280} height={720} />
+      {overlays.map((o) => (
+        <div
+          key={o.id}
+          style={{
+            position: 'absolute',
+            left: o.domX,
+            top: o.domY,
+            width: 32,
+            height: 32,
+            transform: 'translate(-50%, -50%)',
+          }}
+          onMouseEnter={() => setHovered(o.id)}
+          onMouseLeave={() => setHovered(null)}
+        >
+          {hovered === o.id && (
+            <div style={{ background: 'rgba(0,0,0,0.8)', color: 'white', padding: 4, fontSize: 10, borderRadius: 4, whiteSpace: 'nowrap' }}>
+              {`HP: ${o.health} | Lvl: ${o.level}`}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+---
+Platforms: web
+
+=== PLATFORM NOTES ===
+This hook is only meaningful in web mode. On Love2D native, Neovim, terminal, and other
+non-web targets, there is no DOM to position overlays in. The hook is exported from
+@ilovereact/core for completeness but should only be used in web-mode applications.
+
+The hook uses ResizeObserver to track canvas size changes and automatically updates overlay
+positions when the canvas is resized.
+
+=== CRITICAL RULES ===
+- Only use in web mode -- has no effect on other platforms
+- The canvasRef must point to the actual <canvas> element Love2D renders into
+- Overlays are computed from 'overlays' events dispatched by the Lua side
+- If the canvas ref is null or not yet mounted, the hook returns an empty array
+- Overlay positions are recomputed when the canvas resizes (via ResizeObserver)
+- Must be used inside a BridgeProvider context
+
+=== SEE ALSO ===
+- uselove.txt -- General event subscription
+- useLoveEvent -- Fire-and-forget event handling

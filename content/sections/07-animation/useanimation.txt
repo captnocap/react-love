@@ -1,0 +1,151 @@
+=== METADATA ===
+title: useAnimation
+description: Primary React hook for consuming animated values with automatic re-rendering.
+category: Animation
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: useAnimation, hook, animation, AnimatedValue, re-render, batched, frame
+related: animatedvalue.txt, usespring.txt, usetransition.txt
+difficulty: intermediate
+
+=== OVERVIEW ===
+useAnimation is the primary hook for using animated values in React components. It creates
+an AnimatedValue instance (once, on first render), subscribes to its value changes, and
+triggers component re-renders when the value updates. Value updates are batched to animation
+frames so the component re-renders at most once per frame, even if the animated value changes
+multiple times.
+
+The hook returns a tuple of [AnimatedValue, currentValue]. Use the AnimatedValue to create
+and start animations (.timing(), .spring()). Use currentValue in your JSX to render the
+animated style properties.
+
+=== API / SYNTAX ===
+Signature:
+  function useAnimation(initialValue: number): [AnimatedValue, number]
+
+Parameters:
+  initialValue: number
+    The initial numeric value of the animated value.
+
+Returns:
+  [animatedValue, currentValue]
+
+  animatedValue: AnimatedValue
+    The AnimatedValue instance. Stable reference across re-renders.
+    Use .timing(config) or .spring(config) to create animations, then call .start().
+    Use .setValue(n) to set immediately.
+    Use .interpolate(config) to map to other ranges.
+
+  currentValue: number
+    The current numeric value, updated each animation frame. Use this in your JSX
+    for style props like opacity, width, translateX, etc.
+
+Lifecycle:
+  - AnimatedValue is created once (stored in a ref)
+  - A listener is registered on mount to batch value changes into React state updates
+  - On unmount, the listener is removed and any active animation is stopped
+
+=== EXAMPLES ===
+Example 1: Opacity fade-in
+---
+import { useEffect } from 'react';
+import { useAnimation, Box, Text } from '@ilovereact/core';
+
+function FadeIn() {
+  const [opacityAnim, opacity] = useAnimation(0);
+
+  useEffect(() => {
+    opacityAnim.timing({ toValue: 1, duration: 800 }).start();
+  }, [opacityAnim]);
+
+  return (
+    <Box style={{ width: '100%', height: '100%', opacity }}>
+      <Text style={{ fontSize: 24, color: '#cdd6f4' }}>Faded in!</Text>
+    </Box>
+  );
+}
+---
+Platforms: All
+
+Example 2: Spring press effect
+---
+import { useState, useEffect } from 'react';
+import { useAnimation, Box } from '@ilovereact/core';
+
+function PressableBox() {
+  const [scaleAnim, scale] = useAnimation(1);
+  const [isPressed, setIsPressed] = useState(false);
+
+  useEffect(() => {
+    scaleAnim.spring({
+      toValue: isPressed ? 0.95 : 1.0,
+      stiffness: 300,
+      damping: 20,
+    }).start();
+  }, [isPressed, scaleAnim]);
+
+  return (
+    <Box
+      style={{
+        width: 200,
+        height: 80,
+        backgroundColor: '#a6e3a1',
+        borderRadius: 12,
+        transform: { scaleX: scale, scaleY: scale },
+      }}
+      onClick={() => setIsPressed(!isPressed)}
+    >
+      <Text style={{ fontSize: 18, color: '#1e1e2e' }}>Press me</Text>
+    </Box>
+  );
+}
+---
+Platforms: All
+
+Example 3: Continuous rotation
+---
+import { useEffect } from 'react';
+import { useAnimation, loop, Easing, Box } from '@ilovereact/core';
+
+function Spinner() {
+  const [rotAnim, rotation] = useAnimation(0);
+
+  useEffect(() => {
+    const spin = loop(
+      rotAnim.timing({ toValue: 360, duration: 1000, easing: Easing.linear }),
+      { iterations: -1 }
+    );
+    spin.start();
+    return () => spin.stop();
+  }, [rotAnim]);
+
+  return (
+    <Box style={{
+      width: 50,
+      height: 50,
+      backgroundColor: '#89b4fa',
+      borderRadius: 25,
+      transform: { rotate: rotation },
+    }} />
+  );
+}
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+Web: Value updates are batched using requestAnimationFrame. The component re-renders at most
+once per frame, regardless of how frequently the animated value changes.
+
+Love2D: Uses setTimeout-based fallback at ~60fps. Batching behavior is identical.
+
+=== CRITICAL RULES ===
+- The AnimatedValue instance is created once and stored in a ref -- it is a stable reference
+- The currentValue triggers a React re-render when it changes (batched to animation frames)
+- On unmount, active animations are stopped and the listener is removed
+- Do not create AnimatedValue instances manually for React components -- use this hook
+- The hook does not clean up animations started in effects -- you must stop them in effect cleanup
+
+=== SEE ALSO ===
+- animatedvalue.txt -- AnimatedValue class details
+- usespring.txt -- Convenience hook for automatic spring transitions
+- usetransition.txt -- Convenience hook for automatic timing transitions
+- composite.txt -- Combining animations (parallel, sequence, etc.)

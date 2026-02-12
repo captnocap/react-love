@@ -1,0 +1,43 @@
+=== METADATA ===
+title: Targets
+description: Hub page listing all seven iLoveReact render targets
+category: Targets
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: targets, platforms, love2d, web, terminal, computercraft, neovim, hammerspoon, awesomewm
+related: love2d, web, terminal, computercraft, neovim, hammerspoon, awesomewm
+difficulty: beginner
+
+=== OVERVIEW ===
+iLoveReact renders to seven distinct targets. Each target has its own painter, transport
+mechanism, and build configuration. The core component API (Box, Text, Image, Pressable,
+and all higher-level components) works across all of them. The differences are in
+rendering fidelity, color support, input capabilities, and distribution format.
+
+Choose your target based on your deployment environment. Love2D is the primary target
+with the most features. Web mode runs in browsers. The grid targets (terminal, CC,
+Neovim, HS, Awesome) operate on character grids or pixel canvases within their host
+applications.
+
+=== EXAMPLES ===
+Example 1: Target Comparison
+---
+Target          | Transport    | Colors     | Input              | Build Format
+----------------|-------------|------------|--------------------|--------------
+Love2D          | QuickJS FFI | Truecolor  | Mouse/KB/Touch/Pad | IIFE bundle
+Web             | Module.FS   | Full CSS   | Mouse/KB/Touch     | ESM bundle
+Terminal        | (built-in)  | Truecolor  | Keyboard           | Node.js ESM
+ComputerCraft   | WebSocket   | 16 colors  | Keyboard           | Node.js ESM
+Neovim          | stdio       | 256 color  | Keyboard           | Node.js ESM
+Hammerspoon     | WebSocket   | Truecolor  | Mouse/Keyboard     | Node.js ESM
+AwesomeWM       | stdio       | Truecolor  | Mouse/Keyboard     | Node.js ESM
+---
+Platforms: All
+
+=== SEE ALSO ===
+- love2d.txt - Love2D target (primary, most mature)
+- web.txt - Web/browser target
+- terminal.txt - Terminal emulator target
+- computercraft.txt - ComputerCraft (Minecraft) target
+- neovim.txt - Neovim floating windows target
+- hammerspoon.txt - Hammerspoon (macOS) target
+- awesomewm.txt - AwesomeWM (Linux) target

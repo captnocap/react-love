@@ -1,0 +1,36 @@
+=== METADATA ===
+title: Architecture
+description: Hub page for iLoveReact architecture documentation
+category: Architecture
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: architecture, pipeline, reconciler, layout, transport, painter, source of truth
+related: pipeline, reconciler, layout-engine, transport, painter, source-of-truth
+difficulty: intermediate
+
+=== OVERVIEW ===
+iLoveReact's architecture is a multi-stage rendering pipeline. React components are
+reconciled into an instance tree, serialized as mutation commands, transported to the
+target runtime, laid out by a flexbox engine, and drawn by a target-specific painter.
+Each stage is independent and replaceable.
+
+This section documents each stage in detail, from the React reconciler through the
+final paint calls. Understanding this pipeline is essential for debugging layout issues,
+building custom targets, or contributing to the framework.
+
+=== EXAMPLES ===
+Example 1: Section Contents
+---
+02-architecture/
+  pipeline.txt        - End-to-end rendering pipeline overview
+  reconciler.txt      - React reconciler and host config
+  layout-engine.txt   - Lua-side flexbox layout engine
+  transport.txt       - Transport layer (QuickJS FFI, Module.FS, WebSocket, stdio)
+  painter.txt         - Target-specific painters
+  source-of-truth.txt - File organization and sync pipeline
+---
+Platforms: All
+
+=== SEE ALSO ===
+- pipeline.txt - Start here for the big picture
+- 01-getting-started/philosophy.txt - Design principles
+- 10-advanced/lua-runtime.txt - Deep dive into Lua modules

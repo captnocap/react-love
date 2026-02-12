@@ -1,0 +1,163 @@
+=== METADATA ===
+title: Slider
+description: Draggable range input with track and thumb for value selection
+category: Components
+platforms: love2d, web
+keywords: slider, range, input, drag, track, thumb, value, step, horizontal, vertical
+related: Pressable, Box, Switch
+difficulty: intermediate
+
+=== OVERVIEW ===
+Slider provides a draggable input for selecting a numeric value within a range. It renders a track with an active fill and a draggable thumb. Slider supports both controlled (value prop) and uncontrolled (defaultValue prop) modes, step snapping, vertical orientation, and full visual customization of track and thumb colors and sizes.
+
+In web mode, Slider handles drag via mouse events with global listeners for reliable tracking outside the element bounds. In native mode, it uses the Box drag event system (onDragStart, onDrag, onDragEnd) for pointer tracking. The native renderer uses a three-segment flex layout (active track, thumb, inactive track) rather than absolute positioning for compatibility with the Lua layout engine.
+
+=== API / SYNTAX ===
+```tsx
+import { Slider } from '@ilovereact/core';
+```
+
+```tsx
+const [volume, setVolume] = useState(0.5);
+
+<Slider
+  value={volume}
+  onValueChange={setVolume}
+  minimumValue={0}
+  maximumValue={1}
+  step={0.1}
+  style={{ width: 200 }}
+/>
+```
+
+Props:
+| Prop             | Type                          | Default     | Description                                |
+|------------------|-------------------------------|-------------|--------------------------------------------|
+| value            | number                        | undefined   | Controlled value (overrides internal state)|
+| defaultValue     | number                        | 0           | Initial value for uncontrolled mode        |
+| onValueChange    | (value: number) => void       | undefined   | Called on every value change during drag    |
+| onSlidingStart   | () => void                    | undefined   | Called when drag begins                    |
+| onSlidingEnd     | (value: number) => void       | undefined   | Called when drag ends with final value     |
+| minimumValue     | number                        | 0           | Minimum allowed value                      |
+| maximumValue     | number                        | 1           | Maximum allowed value                      |
+| step             | number                        | undefined   | Snap value to step increments              |
+| disabled         | boolean                       | false       | Disable interaction                        |
+| style            | Style                         | undefined   | Container style (width sets track length)  |
+| trackColor       | Color                         | '#333333'   | Inactive track color                       |
+| activeTrackColor | Color                         | '#4A90D9'   | Active (filled) track color                |
+| thumbColor       | Color                         | '#ffffff'   | Thumb color                                |
+| thumbSize        | number                        | 20          | Thumb diameter in pixels                   |
+| trackHeight      | number                        | 4           | Track height in pixels                     |
+| vertical         | boolean                       | false       | Vertical orientation                       |
+
+=== EXAMPLES ===
+Example 1: Basic horizontal slider
+---
+```tsx
+const [value, setValue] = useState(50);
+
+<Slider
+  value={value}
+  onValueChange={setValue}
+  minimumValue={0}
+  maximumValue={100}
+  style={{ width: 300 }}
+/>
+<Text style={{ fontSize: 14, color: '#cdd6f4' }}>{`Value: ${value}`}</Text>
+```
+---
+Platforms: Love2D, Web
+
+Example 2: Stepped slider with custom colors
+---
+```tsx
+const [rating, setRating] = useState(3);
+
+<Slider
+  value={rating}
+  onValueChange={setRating}
+  minimumValue={1}
+  maximumValue={5}
+  step={1}
+  trackColor="#45475a"
+  activeTrackColor="#a6e3a1"
+  thumbColor="#a6e3a1"
+  thumbSize={24}
+  trackHeight={6}
+  style={{ width: 250 }}
+/>
+<Text style={{ fontSize: 14, color: '#cdd6f4' }}>{`Rating: ${rating}/5`}</Text>
+```
+---
+Platforms: Love2D, Web
+
+Example 3: Uncontrolled slider with callbacks
+---
+```tsx
+<Slider
+  defaultValue={0.5}
+  minimumValue={0}
+  maximumValue={1}
+  onSlidingStart={() => console.log('started')}
+  onValueChange={(v) => console.log('current:', v)}
+  onSlidingEnd={(v) => console.log('final:', v)}
+  style={{ width: 200 }}
+/>
+```
+---
+Platforms: Love2D, Web
+
+Example 4: Vertical slider
+---
+```tsx
+const [level, setLevel] = useState(0.7);
+
+<Box style={{ flexDirection: 'row', alignItems: 'center', gap: 12, height: 200 }}>
+  <Slider
+    value={level}
+    onValueChange={setLevel}
+    vertical
+    style={{ height: 180 }}
+    activeTrackColor="#89b4fa"
+  />
+  <Text style={{ fontSize: 14, color: '#cdd6f4' }}>{`${Math.round(level * 100)}%`}</Text>
+</Box>
+```
+---
+Platforms: Love2D, Web
+
+Example 5: Disabled slider
+---
+```tsx
+<Slider
+  value={0.3}
+  disabled
+  style={{ width: 200 }}
+/>
+```
+---
+Platforms: Love2D, Web
+
+=== PLATFORM NOTES ===
+Love2D:
+  Native mode uses a three-segment flex row layout: active track segment, thumb circle, inactive track segment. This avoids position: absolute which has limitations in the Lua layout engine for this use case. Drag tracking uses the Box drag event system (onDragStart, onDrag, onDragEnd) with totalDeltaX/totalDeltaY from the LoveEvent. Track width defaults to 200px if not specified via style.width. The value-at-drag-start is captured and deltas are applied relative to it for smooth, predictable dragging.
+
+Web:
+  Uses absolute positioning for the active track fill and thumb within the track container. Mouse events use global document listeners (mousemove, mouseup) during drag for reliable tracking even when the cursor leaves the slider bounds. Disabled state shows cursor: not-allowed on the thumb.
+
+Terminal:
+  Not available on grid targets. For value selection on character-grid renderers, build a custom component using keyboard input.
+
+=== CRITICAL RULES ===
+- In controlled mode (value prop provided), you MUST update the value in onValueChange. If you do not, the thumb will not move because the component re-renders with the stale controlled value.
+- The style.width prop (or style.height for vertical) determines the track length. Without it, the slider defaults to 200px. Always set an explicit size for predictable layout.
+- step snapping rounds to the nearest step increment. A step of 0.1 with range 0-1 produces values: 0, 0.1, 0.2, ..., 1.0. The snapped value is clamped to [minimumValue, maximumValue].
+- onValueChange fires on every drag movement (potentially many times per second). Do not perform expensive operations in this callback. Use onSlidingEnd for final-value operations like network requests or heavy state updates.
+- onSlidingEnd fires once when the drag gesture completes. Its argument is the final value after step snapping and clamping.
+- Disabled sliders render at 50% opacity and ignore all interaction.
+
+=== SEE ALSO ===
+- Pressable
+- Box
+- Switch
+- Style type reference

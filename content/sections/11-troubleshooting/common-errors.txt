@@ -1,0 +1,158 @@
+=== METADATA ===
+title: Common Errors and Solutions
+description: Symptom-to-solution guide for the most frequent iLoveReact issues
+category: Troubleshooting
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: errors, troubleshooting, text not rendering, flexGrow, justifyContent, build fails, lint
+related: faq, debugging, style-properties, source-of-truth
+difficulty: beginner
+
+=== OVERVIEW ===
+This page lists the most common errors and unexpected behaviors in iLoveReact, organized
+by symptom. Each entry explains why the problem occurs and how to fix it. Most of these
+are caught by the static linter (`ilovereact lint`), so running the linter after every
+component change is the fastest way to avoid them.
+
+=== EXAMPLES ===
+Example 1: Text Not Rendering
+---
+Symptom: A <Text> component exists in the tree but nothing appears on screen.
+
+Cause: The Text node is missing an explicit fontSize.
+  Without fontSize, the layout engine uses a default of 14 but the linter
+  will block your build. If you bypassed the linter, the text may render
+  at an unexpected size or position.
+
+Fix: Always provide fontSize on every Text node.
+
+  BAD:  <Text style={{ color: '#ffffff' }}>Hello</Text>
+  GOOD: <Text style={{ fontSize: 16, color: '#ffffff' }}>Hello</Text>
+
+The linter rule `no-missing-font-size` enforces this.
+---
+Platforms: All
+
+Example 2: flexGrow Not Working
+---
+Symptom: A node has flexGrow: 1 but does not expand to fill space.
+
+Cause: The parent does not have a known size on the main axis.
+  flexGrow distributes free space. If the parent's size is auto (unknown),
+  there is no free space to distribute.
+
+Fix: Give the parent an explicit size.
+
+  BAD:
+  <Box>
+    <Box style={{ flexGrow: 1 }} />  {/* Parent has no height */}
+  </Box>
+
+  GOOD:
+  <Box style={{ height: '100%' }}>
+    <Box style={{ flexGrow: 1 }} />  {/* Parent has known height */}
+  </Box>
+
+For the root container, always use width: '100%', height: '100%'.
+Do NOT use flexGrow: 1 on root containers.
+---
+Platforms: All
+
+Example 3: justifyContent Ignored on Row
+---
+Symptom: A row Box has justifyContent: 'center' but children are left-aligned.
+
+Cause: The row Box has no explicit width. Box nodes have no intrinsic width
+  (only Text nodes do via measurement). Without a known width, there is no
+  space to distribute, so justifyContent has no effect.
+
+Fix: Add width: '100%' or a fixed width to row Boxes that need justifyContent.
+
+  BAD:
+  <Box style={{ flexDirection: 'row', justifyContent: 'center' }}>
+    <Text style={{ fontSize: 14 }}>Centered?</Text>
+  </Box>
+
+  GOOD:
+  <Box style={{ flexDirection: 'row', width: '100%', justifyContent: 'center' }}>
+    <Text style={{ fontSize: 14 }}>Centered!</Text>
+  </Box>
+---
+Platforms: All
+
+Example 4: Mixed Text Children
+---
+Symptom: Text content renders incorrectly or only partially.
+
+Cause: Using mixed JSX expressions in Text creates multiple child nodes
+  instead of a single text string.
+
+Fix: Use template literals for dynamic text content.
+
+  BAD:  <Text style={{ fontSize: 14 }}>Count: {count}</Text>
+  GOOD: <Text style={{ fontSize: 14 }}>{`Count: ${count}`}</Text>
+---
+Platforms: All
+
+Example 5: Build Fails
+---
+Symptom: `ilovereact build` exits with errors.
+
+Cause: The build command runs `ilovereact lint` as a gate before bundling.
+  Layout lint errors will block the build.
+
+Fix: Run `ilovereact lint` separately to see all errors. Fix each one.
+  Common lint errors:
+  - no-missing-font-size: Text without fontSize
+  - no-block-char-in-text: Unicode block character in Text (use Box with backgroundColor)
+  - root container without 100% dimensions
+
+If a lint rule is wrong for your use case, use the escape hatch:
+  // ilr-ignore-next-line
+---
+Platforms: All
+
+Example 6: Runtime Files Outdated
+---
+Symptom: After editing framework files (lua/*.lua, packages/shared/), the changes
+  do not appear in your project.
+
+Cause: You edited the source of truth but did not run the sync pipeline.
+  The project still has the old copies.
+
+Fix: Run the full sync pipeline.
+
+  make cli-setup              # source -> cli/runtime/
+  cd examples/<project>
+  ilovereact update           # cli/runtime/ -> project copies
+  ilovereact build dist:love  # rebuild
+---
+Platforms: All
+
+Example 7: libquickjs.so Not Found
+---
+Symptom: Love2D crashes with an error about loading libquickjs.so.
+
+Cause: The QuickJS shared library has not been built or is not in the
+  expected location.
+
+Fix: Build QuickJS and sync to the project.
+
+  make setup       # Clone quickjs-ng, compile libquickjs.so
+  make cli-setup   # Copy to cli/runtime/lib/
+  cd examples/<project>
+  ilovereact update  # Copy to project/lib/
+---
+Platforms: love2d
+
+=== CRITICAL RULES ===
+- Run `ilovereact lint` after EVERY component change.
+- The linter catches the most common errors before they become runtime bugs.
+- When in doubt, check the computed layout with the F12 inspector.
+- If changes are not appearing, check whether you edited the source of truth
+  or a copy.
+
+=== SEE ALSO ===
+- faq.txt - General questions
+- 10-advanced/debugging.txt - F12 inspector and console
+- 02-architecture/source-of-truth.txt - File editing rules
+- 04-layout-system/flexbox.txt - Flexbox rules

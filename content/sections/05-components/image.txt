@@ -1,0 +1,115 @@
+=== METADATA ===
+title: Image
+description: Displays images with sizing and objectFit control
+category: Components
+platforms: love2d, web
+keywords: image, picture, src, objectFit, contain, cover, fill, sprite, texture
+related: Box, Text
+difficulty: beginner
+
+=== OVERVIEW ===
+Image displays an image from a file path or URL. It supports sizing via width/height style properties and content fitting via the objectFit style property. Unlike Box, Image has no children. Unlike Text, Image has no intrinsic size derived from content -- you must specify width and height explicitly or let the parent constrain it.
+
+In web mode, Image renders as an `<img>` element. In native mode, it outputs an `'Image'` host element that the Lua painter draws using love.graphics.draw() with the image loaded from the src path.
+
+=== API / SYNTAX ===
+```tsx
+import { Image } from '@ilovereact/core';
+```
+
+```tsx
+<Image
+  src="assets/logo.png"
+  style={{ width: 128, height: 128, objectFit: 'contain' }}
+/>
+```
+
+Props:
+| Prop    | Type                         | Default   | Description                          |
+|---------|------------------------------|-----------|--------------------------------------|
+| src     | string                       | REQUIRED  | Image file path or URL               |
+| style   | Style                        | undefined | Sizing and visual styling            |
+| onClick | (event: LoveEvent) => void   | undefined | Click/press handler                  |
+| onWheel | (event: LoveEvent) => void   | undefined | Mouse wheel handler                  |
+
+objectFit values (set via style.objectFit):
+| Value   | Behavior                                                        |
+|---------|-----------------------------------------------------------------|
+| fill    | Stretch image to fill the element (may distort aspect ratio)    |
+| contain | Scale image to fit entirely within the element (letterboxed)    |
+| cover   | Scale image to cover the element entirely (may crop)            |
+| none    | Display at original size, no scaling                            |
+
+=== EXAMPLES ===
+Example 1: Basic image with fixed size
+---
+```tsx
+<Image
+  src="assets/icon.png"
+  style={{ width: 64, height: 64 }}
+/>
+```
+---
+Platforms: Love2D, Web
+
+Example 2: Image with objectFit contain
+---
+```tsx
+<Image
+  src="assets/banner.png"
+  style={{
+    width: '100%',
+    height: 200,
+    objectFit: 'contain',
+    backgroundColor: '#181825',
+  }}
+/>
+```
+---
+Platforms: Love2D, Web
+
+Example 3: Clickable image
+---
+```tsx
+<Image
+  src="assets/button-sprite.png"
+  style={{ width: 48, height: 48, borderRadius: 8 }}
+  onClick={() => console.log('image clicked')}
+/>
+```
+---
+Platforms: Love2D, Web
+
+Example 4: Cover image filling a card
+---
+```tsx
+<Box style={{ width: 300, height: 200, borderRadius: 12, overflow: 'hidden' }}>
+  <Image
+    src="assets/photo.jpg"
+    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+  />
+</Box>
+```
+---
+Platforms: Love2D, Web
+
+=== PLATFORM NOTES ===
+Love2D:
+  Renders as an 'Image' host element. The Lua painter loads the image via love.graphics.newImage() and caches it. The src path is relative to the project root (where main.lua lives). Supported formats: PNG, JPEG, BMP, TGA, and other formats Love2D supports. objectFit is implemented by the painter via quad scaling.
+
+Web:
+  Renders as an <img> element with display: block. objectFit maps directly to the CSS object-fit property. src can be a relative path, absolute URL, or data URI.
+
+Terminal:
+  Image is not supported on grid targets. Terminal, ComputerCraft, Neovim, and other character-grid renderers cannot display raster images. Use colored Box elements to approximate pixel art if needed.
+
+=== CRITICAL RULES ===
+- Image has no intrinsic size. You must provide width and height via the style prop, or constrain the image via a parent Box with known dimensions. An Image without sizing will collapse to zero.
+- The src prop is required. Omitting it will produce an error.
+- Image paths in Love2D are relative to the project root directory, not the source file. Use paths like "assets/image.png", not "../assets/image.png".
+- Image accepts no children. It is a leaf element.
+
+=== SEE ALSO ===
+- Box
+- Text
+- Style type reference

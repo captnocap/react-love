@@ -1,0 +1,68 @@
+=== METADATA ===
+title: ilovereact dev
+description: Start esbuild in watch mode for live Love2D development.
+category: CLI
+platforms: love2d
+keywords: dev, watch, hmr, live reload, esbuild, development
+related: build.txt, init.txt
+difficulty: beginner
+
+=== OVERVIEW ===
+The `ilovereact dev` command starts esbuild in watch mode, continuously rebuilding the
+JavaScript bundle whenever source files change. It uses the correct esbuild flags for the
+Love2D target (IIFE format, ReactLove global name, ES2020 target, automatic JSX).
+
+Run `love .` in a separate terminal to see your app. Love2D reads the bundle.js file on
+each frame update, so changes appear in real time without restarting Love2D.
+
+=== API / SYNTAX ===
+Usage:
+  ilovereact dev
+
+Entry point:
+  src/main.tsx (required -- the command exits with an error if this file does not exist)
+
+Output:
+  bundle.js in the project root
+
+esbuild flags used:
+  --bundle
+  --format=iife
+  --global-name=ReactLove
+  --target=es2020
+  --jsx=automatic
+  --outfile=bundle.js
+  --watch
+
+=== EXAMPLES ===
+Example 1: Standard development workflow
+---
+# Terminal 1:
+cd my-project
+ilovereact dev
+
+# Terminal 2:
+cd my-project
+love .
+---
+Platforms: love2d
+
+=== PLATFORM NOTES ===
+This command is specific to the Love2D target. It produces an IIFE bundle that runs inside
+QuickJS via the Love2D bridge. For grid target development (terminal, Neovim, etc.), use
+the npm scripts in the monorepo root package.json instead.
+
+The dev command does not run the linter automatically. Run `ilovereact lint` separately
+after making component changes.
+
+=== CRITICAL RULES ===
+- The project must have a src/main.tsx entry point
+- Do NOT run raw esbuild --watch manually -- the CLI encodes the correct flags
+- The dev command requires local lua/ and lib/ directories (run `ilovereact update` first if missing)
+- Love2D must be running in a separate terminal -- the dev command only watches and bundles JS
+- Ctrl+C exits the watcher
+
+=== SEE ALSO ===
+- build.txt -- Production builds (includes lint gate)
+- lint.txt -- Run the linter separately during development
+- init.txt -- Creating new projects with the correct structure

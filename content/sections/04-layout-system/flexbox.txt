@@ -1,0 +1,159 @@
+=== METADATA ===
+title: Flexbox Layout Model
+description: How iLoveReact uses Flexbox for all layout, with column as the default direction.
+category: Layout
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: flexbox, flexDirection, justifyContent, alignItems, alignSelf, flexGrow, flexShrink, flexBasis, flexWrap, gap, row, column
+related: sizing.txt, spacing.txt, critical-rules.txt
+difficulty: beginner
+
+=== OVERVIEW ===
+iLoveReact uses Flexbox for all layout, mirroring React Native's approach. Every Box is
+implicitly a flex container -- there is no need to set display: 'flex' (it is the default).
+The critical difference from CSS is that flexDirection defaults to 'column', not 'row'.
+This means children stack vertically unless you explicitly set flexDirection: 'row'.
+
+The layout engine on the Lua side resolves flex properties into absolute positions and
+sizes. It supports the standard flex properties: main axis distribution (justifyContent),
+cross axis alignment (alignItems, alignSelf), flex sizing (flexGrow, flexShrink, flexBasis),
+wrapping (flexWrap), and gap spacing. All values use the same names as CSS Flexbox except
+that 'start' and 'end' are used instead of 'flex-start' and 'flex-end'.
+
+=== API / SYNTAX ===
+Flexbox style properties (all set via the `style` prop on Box):
+
+  flexDirection: 'row' | 'column'
+    Default: 'column'
+    Sets the main axis. 'column' stacks children vertically, 'row' stacks horizontally.
+
+  justifyContent: 'start' | 'center' | 'end' | 'space-between' | 'space-around' | 'space-evenly'
+    Default: 'start'
+    Distributes children along the main axis.
+    IMPORTANT: For row containers, justifyContent only works when the Box has an explicit
+    width. Box nodes have no intrinsic width, so without one the engine cannot distribute
+    space. The linter enforces this.
+
+  alignItems: 'start' | 'center' | 'end' | 'stretch'
+    Default: 'stretch'
+    Aligns children along the cross axis.
+
+  alignSelf: 'auto' | 'start' | 'center' | 'end' | 'stretch'
+    Default: 'auto' (inherits parent's alignItems)
+    Overrides the parent's alignItems for a specific child.
+
+  flexGrow: number
+    Default: 0
+    How much of the remaining space this child should consume.
+    Must have sibling sizing context to work predictably -- the linter warns when all
+    siblings grow without explicit main-axis dimensions.
+
+  flexShrink: number
+    Default: 1
+    How much this child should shrink when the container is too small.
+
+  flexBasis: number | string | 'auto'
+    Default: 'auto'
+    The initial size of the child before flexGrow/flexShrink are applied.
+
+  flexWrap: 'nowrap' | 'wrap'
+    Default: 'nowrap'
+    Whether children wrap to the next line when they exceed the container size.
+
+  gap: number | string
+    Spacing between children (applied uniformly on the main axis).
+
+  display: 'flex' | 'none'
+    Default: 'flex'
+    Set to 'none' to hide an element entirely (does not occupy space).
+
+=== EXAMPLES ===
+Example 1: Vertical stack (default)
+---
+<Box style={{ width: '100%', height: '100%' }}>
+  <Text style={{ fontSize: 20, color: '#cdd6f4' }}>First</Text>
+  <Text style={{ fontSize: 20, color: '#cdd6f4' }}>Second</Text>
+  <Text style={{ fontSize: 20, color: '#cdd6f4' }}>Third</Text>
+</Box>
+---
+Platforms: All
+
+Example 2: Horizontal row with space-between
+---
+<Box style={{
+  flexDirection: 'row',
+  width: '100%',
+  justifyContent: 'space-between',
+  padding: 12,
+}}>
+  <Text style={{ fontSize: 16, color: '#cdd6f4' }}>Left</Text>
+  <Text style={{ fontSize: 16, color: '#cdd6f4' }}>Center</Text>
+  <Text style={{ fontSize: 16, color: '#cdd6f4' }}>Right</Text>
+</Box>
+---
+Platforms: All
+
+Example 3: Centered content
+---
+<Box style={{
+  width: '100%',
+  height: '100%',
+  justifyContent: 'center',
+  alignItems: 'center',
+}}>
+  <Text style={{ fontSize: 32, color: '#cdd6f4' }}>Centered</Text>
+</Box>
+---
+Platforms: All
+
+Example 4: flexGrow with sibling sizing
+---
+<Box style={{ flexDirection: 'row', width: '100%', height: 50 }}>
+  <Box style={{ width: 100, backgroundColor: '#f38ba8' }} />
+  <Box style={{ flexGrow: 1, backgroundColor: '#a6e3a1' }} />
+  <Box style={{ width: 100, backgroundColor: '#89b4fa' }} />
+</Box>
+---
+Platforms: All
+
+Example 5: Wrapping row
+---
+<Box style={{
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  width: 300,
+  gap: 8,
+}}>
+  <Box style={{ width: 80, height: 80, backgroundColor: '#f38ba8' }} />
+  <Box style={{ width: 80, height: 80, backgroundColor: '#a6e3a1' }} />
+  <Box style={{ width: 80, height: 80, backgroundColor: '#89b4fa' }} />
+  <Box style={{ width: 80, height: 80, backgroundColor: '#f9e2af' }} />
+  <Box style={{ width: 80, height: 80, backgroundColor: '#cba6f7' }} />
+</Box>
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+Love2D: The Lua layout engine (layout.lua) performs the flex calculation. flexDirection
+defaults to 'column'. Text nodes have intrinsic width based on font measurement, but Box
+nodes have zero intrinsic width -- they must be given explicit dimensions or use flexGrow
+with properly sized siblings.
+
+Web: Style values are converted to CSS Flexbox via styleToCSS(). The conversion maps
+'start' to 'flex-start' and 'end' to 'flex-end'. Box renders as a <div> with display:flex.
+
+Grid targets: Flex layout operates in character-cell units rather than pixels. The gap
+property adds character cells of spacing between children.
+
+=== CRITICAL RULES ===
+- flexDirection defaults to 'column', not 'row' -- this is the opposite of CSS default
+- justifyContent on a row Box REQUIRES explicit width -- Box nodes have no intrinsic width
+- flexGrow without sibling sizing context produces unreliable layout
+- All siblings using flexGrow without any explicit main-axis size causes content-dependent layout
+- Use 'start'/'end', not 'flex-start'/'flex-end' -- the framework handles the conversion
+- Prefer Box with flexDirection: 'row' over FlexRow component (linter warns about FlexRow)
+- flexGrow on a root container is useless -- there is no parent to grow into
+
+=== SEE ALSO ===
+- sizing.txt -- Width, height, min/max sizing
+- spacing.txt -- Padding, margin, gap
+- critical-rules.txt -- Complete critical layout rules

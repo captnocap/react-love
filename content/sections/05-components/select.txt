@@ -1,0 +1,113 @@
+=== METADATA ===
+title: Select
+description: Dropdown selection component with web-native select and native accordion-style expand/collapse.
+category: Components
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: select, dropdown, picker, option, form, input, menu
+related: Radio, Tabs
+difficulty: beginner
+
+=== OVERVIEW ===
+Select provides a dropdown-style selection from a list of options. Each option has a `label` (displayed) and a `value` (used programmatically).
+
+Select supports both controlled and uncontrolled modes. In web mode, it renders a native HTML `<select>` element with custom styling. In native mode (Love2D), it renders an inline accordion: clicking the header toggles the option list open or closed, and clicking an option selects it and collapses the list.
+
+=== API / SYNTAX ===
+Import: import { Select } from '@ilovereact/core';
+
+SelectOption type:
+```ts
+interface SelectOption {
+  label: string;
+  value: string;
+}
+```
+
+Usage:
+```tsx
+<Select
+  value={selected}
+  onValueChange={setSelected}
+  options={[
+    { label: 'Red', value: 'red' },
+    { label: 'Green', value: 'green' },
+    { label: 'Blue', value: 'blue' },
+  ]}
+/>
+```
+
+Props:
+
+| Prop          | Type                      | Default      | Description                               |
+|---------------|---------------------------|--------------|-------------------------------------------|
+| value         | string                    | -            | Controlled selected value                 |
+| defaultValue  | string                    | -            | Initial value in uncontrolled mode        |
+| onValueChange | (value: string) => void   | -            | Called when selection changes              |
+| options       | SelectOption[]            | (required)   | Array of { label, value } options         |
+| placeholder   | string                    | 'Select...'  | Text shown when no option is selected     |
+| disabled      | boolean                   | false        | Disables interaction and dims opacity     |
+| style         | Style                     | -            | Container style overrides                 |
+| color         | Color                     | '#3b82f6'    | Accent color for open state border        |
+
+=== EXAMPLES ===
+Example 1: Controlled select
+---
+```tsx
+const [lang, setLang] = useState<string>();
+
+<Select
+  value={lang}
+  onValueChange={setLang}
+  options={[
+    { label: 'JavaScript', value: 'js' },
+    { label: 'TypeScript', value: 'ts' },
+    { label: 'Lua', value: 'lua' },
+  ]}
+  placeholder="Choose a language..."
+/>
+```
+---
+Platforms: All
+
+Example 2: Uncontrolled with default
+---
+```tsx
+<Select
+  defaultValue="dark"
+  options={[
+    { label: 'Light', value: 'light' },
+    { label: 'Dark', value: 'dark' },
+    { label: 'System', value: 'system' },
+  ]}
+/>
+```
+---
+Platforms: All
+
+Example 3: Disabled select
+---
+```tsx
+<Select
+  value="locked"
+  disabled
+  options={[{ label: 'Locked', value: 'locked' }]}
+/>
+```
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+- Web: Renders a native HTML `<select>` element. Styling includes dark background (`#1e293b`), border (`#334155`), and `minWidth: 160`. The native browser dropdown behavior applies (OS-native popup).
+- Native (Love2D): Renders an inline accordion. The header shows the selected label (or placeholder) with a `v`/`^` indicator. When open, the option list appears directly below with a border in the `color` prop. Selected option has a highlighted background (`#334155`). The header border color switches to `color` when open.
+- In native mode, the select does not use a popup or portal. The options list expands in-place, pushing content below it downward.
+- Placeholder text renders in `#64748b` (muted). Selected text renders in `#e2e8f0`.
+
+=== CRITICAL RULES ===
+- The `options` prop is required. Passing an empty array renders a header with the placeholder but no options to select.
+- In native mode, the open/close state is internal. There is no prop to force the dropdown open.
+- When `disabled` is true, opacity is set to 0.5 and both the toggle and option clicks are ignored.
+
+=== SEE ALSO ===
+- Radio
+- Tabs
+- Pressable

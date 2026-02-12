@@ -1,0 +1,91 @@
+=== METADATA ===
+title: React Reconciler
+description: How @ilovereact/native uses react-reconciler to build the instance tree and emit mutation commands
+category: Architecture
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: reconciler, react-reconciler, host config, instance tree, mutations, createNode, updateProps
+related: pipeline, transport, layout-engine
+difficulty: intermediate
+
+=== OVERVIEW ===
+iLoveReact uses react-reconciler 0.29 (the same package React Native uses) to manage
+the component tree. The reconciler calls into a host config that creates, updates, and
+removes instances. In native mode, these instances are lightweight JavaScript objects
+that map 1:1 to nodes in the Lua-side retained tree.
+
+The reconciler does not draw anything. It produces mutation commands -- JSON objects
+describing what changed. These commands are batched per frame and flushed to the
+transport layer, which delivers them to the Lua runtime.
+
+=== API / SYNTAX ===
+Host Element Types:
+  'View'    - Box/container element, maps to <Box> primitive
+  'Text'    - Text element, maps to <Text> primitive
+  'Image'   - Image element, maps to <Image> primitive
+
+Mutation Command Types:
+  createNode     - Create a new node: { type, nodeType, id, props }
+  updateProps    - Update props on existing node: { type, id, props }
+  appendChild    - Append child to parent: { type, parentId, childId }
+  removeChild    - Remove child from parent: { type, parentId, childId }
+  insertBefore   - Insert child before sibling: { type, parentId, childId, beforeId }
+  commitTextUpdate - Update raw text content: { type, id, text }
+
+Key Exports from @ilovereact/native:
+  createRoot()       - Create a reconciler root
+  render(element)    - Render a React element into the root
+  unmountAll()       - Tear down all roots
+  createLove2DApp()  - Factory that wires up bridge + reconciler + providers
+  flushToHost()      - Flush pending mutations to the transport
+  hostConfig         - The raw react-reconciler host config object
+  handlerRegistry    - Maps event handler names to node IDs
+  extractHandlers()  - Extracts event handlers from props (they stay in JS, not sent to Lua)
+
+=== EXAMPLES ===
+Example 1: How createLove2DApp Works
+---
+import { createLove2DApp } from '@ilovereact/native';
+
+const app = createLove2DApp();
+app.render(<App />);
+
+-- Internally, createLove2DApp:
+-- 1. Creates a NativeBridge (QuickJS FFI transport)
+-- 2. Creates a reconciler root via createRoot()
+-- 3. Wraps your element in BridgeProvider and RendererProvider
+-- 4. Wires up the __mount / __deferMount protocol for Lua init
+-- 5. Returns { render, stop, bridge }
+---
+Platforms: love2d
+
+Example 2: The Instance Model
+---
+Each reconciler instance is a plain object:
+
+  {
+    type: 'View',           // host element type
+    id: 1,                  // unique numeric ID
+    props: { style: {...} }, // current props (style, event handlers extracted)
+    children: [],           // child instances
+    parent: null,           // parent instance reference
+  }
+
+Event handlers (onClick, onKeyDown, etc.) are extracted from props and stored
+in the handlerRegistry on the JS side. They never cross the bridge to Lua.
+Only the handler's existence is communicated (so Lua knows to dispatch events
+back to JS for that node).
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+Web mode uses a different path: the RendererMode context switches primitives to
+render as actual DOM elements (div, span, img) with CSS flexbox. The reconciler
+is React DOM's built-in reconciler, not a custom one.
+
+Grid targets (terminal, CC, Neovim, HS, AwesomeWM) use lowercase JSX intrinsics
+(<view>, <text>) with their own reconciler implementations in each target package.
+
+=== SEE ALSO ===
+- pipeline.txt - Where the reconciler fits in the pipeline
+- transport.txt - How mutations reach the Lua runtime
+- 10-advanced/event-handling.txt - How events flow back from Lua to JS

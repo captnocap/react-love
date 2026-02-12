@@ -1,0 +1,103 @@
+=== METADATA ===
+title: Transport Layer
+description: How mutation commands and events travel between React and target runtimes
+category: Architecture
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: transport, bridge, IBridge, QuickJS, FFI, Module.FS, WebSocket, stdio, NativeBridge
+related: pipeline, reconciler, painter
+difficulty: intermediate
+
+=== OVERVIEW ===
+The transport layer is the communication channel between the React reconciler (running
+in JavaScript) and the target runtime (Lua, terminal process, etc.). All transports
+implement the IBridge interface, which provides subscribe, send, rpc, and setState
+methods. React hooks consume IBridge via context and never know which transport is
+active.
+
+There are four transport implementations, each suited to a different deployment model.
+The choice of transport is automatic based on the target and mode configuration.
+
+=== API / SYNTAX ===
+IBridge Interface:
+  send(type, payload?)           - Queue a command for the Lua side (batched)
+  flush()                        - Write all queued commands to transport
+  subscribe(type, fn)            - Subscribe to events from Lua; returns unsubscribe
+  rpc<T>(method, args?, timeout?) - Call an RPC method on Lua, await response
+  setState(key, value)           - Set a shared state key (convenience over send)
+  isReady()                      - Whether the transport is initialized
+  onReady(callback)              - Register callback for when transport becomes ready
+  destroy()                      - Tear down transport resources
+
+Transport Implementations:
+  NativeBridge  (bridge_quickjs.lua) - QuickJS FFI for Love2D native builds
+  WebBridge     (bridge_fs.lua)      - Module.FS for Love2D web (Emscripten) builds
+  WebSocket     (ws)                 - For CC, Hammerspoon targets
+  stdio         (process.stdin/out)  - For Neovim, AwesomeWM targets
+
+=== EXAMPLES ===
+Example 1: Native Mode (QuickJS FFI)
+---
+In native Love2D builds, JavaScript runs inside QuickJS, which is embedded in the
+Love2D process via libquickjs.so (a shared library loaded with LuaJIT FFI).
+
+Data flow:
+  JS -> Lua: Mutation commands written to a shared buffer, drained each frame
+             via bridge:drainCommands()
+  Lua -> JS: Events pushed via bridge:pushEvent(), picked up by JS on next tick
+             via globalThis._pollAndDispatchEvents()
+
+The bridge also provides:
+  bridge:eval(code, filename)        - Evaluate JS code in the QuickJS context
+  bridge:callGlobal(name)            - Call a named global JS function
+  bridge:callGlobalReturn(name)      - Call and return result as Lua value
+  bridge:tick()                      - Advance JS timers and microtask queue
+
+This is the fastest transport -- zero serialization overhead for most operations
+because JS and Lua share the same process memory.
+---
+Platforms: love2d
+
+Example 2: Web Mode (Module.FS)
+---
+In browser builds (love.js / Emscripten), the Lua runtime and JavaScript run in
+separate contexts. Communication happens via JSON files on the Emscripten shared
+filesystem (Module.FS).
+
+Data flow:
+  JS -> Lua: Commands written to /__reconciler_in.json, polled by Lua each frame
+  Lua -> JS: Events written to /__bridge_<namespace>_out.json, polled by JS
+
+Both sides poll their respective inbox files on each frame tick and remove them
+after reading.
+---
+Platforms: web
+
+Example 3: IBridge in React Hooks
+---
+import { useBridge, useLove, useLoveRPC, useLoveState } from '@ilovereact/core';
+
+// All hooks consume IBridge from context -- transport-agnostic
+const [gameState, send] = useLove('game:state', { ready: false });
+const getNearby = useLoveRPC<Entity[]>('getNearby');
+const [health, setHealth] = useLoveState('player.health', 100);
+
+// Send commands
+send('player:move', { x: 100, y: 200 });
+
+// RPC calls
+const nearby = await getNearby({ x: 100, y: 200, range: 500 });
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+Love2D native: QuickJS FFI. Lowest latency. JS and Lua share a process.
+Love2D web:    Module.FS. File-based polling. Higher latency but works in browsers.
+ComputerCraft: WebSocket. Connects to CC's WebSocket API in Minecraft.
+Hammerspoon:   WebSocket. Connects to hs.httpserver.
+Neovim:        stdio via the neovim npm package.
+AwesomeWM:     stdio via spawned process pipes.
+
+=== SEE ALSO ===
+- reconciler.txt - What produces the mutation commands
+- 10-advanced/lua-runtime.txt - The Lua side that receives them
+- 10-advanced/custom-targets.txt - Implementing your own transport

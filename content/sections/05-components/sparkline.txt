@@ -1,0 +1,83 @@
+=== METADATA ===
+title: Sparkline
+description: Mini inline chart rendered as vertical bars normalized to the min/max of the data.
+category: Components
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: sparkline, mini chart, inline chart, trend, visualization, data
+related: BarChart, ProgressBar
+difficulty: beginner
+
+=== OVERVIEW ===
+Sparkline renders a compact inline chart from an array of numbers. Each data point is represented as a thin vertical bar whose height is proportional to the value's position between the dataset's minimum and maximum. This creates a quick visual representation of trends or distributions within a small footprint.
+
+Unlike BarChart, Sparkline is designed for inline use where labels and axes are unnecessary. It automatically computes bar widths to fit the given width and normalizes heights against the data range.
+
+=== API / SYNTAX ===
+Import: import { Sparkline } from '@ilovereact/core';
+
+Usage:
+```tsx
+<Sparkline data={[3, 7, 2, 9, 4, 6, 8, 1, 5]} />
+```
+
+Props:
+
+| Prop   | Type     | Default    | Description                     |
+|--------|----------|------------|---------------------------------|
+| data   | number[] | (required) | Array of numeric data points    |
+| width  | number   | 80         | Total chart width in pixels     |
+| height | number   | 24         | Total chart height in pixels    |
+| color  | Color    | '#3b82f6'  | Bar color                       |
+| style  | Style    | -          | Container style overrides       |
+
+=== EXAMPLES ===
+Example 1: Basic sparkline
+---
+```tsx
+<Sparkline data={[10, 25, 15, 30, 20, 35, 28]} />
+```
+---
+Platforms: All
+
+Example 2: Custom size and color
+---
+```tsx
+<Sparkline
+  data={cpuHistory}
+  width={120}
+  height={32}
+  color="#22c55e"
+/>
+```
+---
+Platforms: All
+
+Example 3: Inline with text
+---
+```tsx
+<Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+  <Text style={{ fontSize: 11, color: '#e2e8f0' }}>CPU</Text>
+  <Sparkline data={cpuData} width={60} height={16} color="#ef4444" />
+  <Text style={{ fontSize: 11, color: '#94a3b8' }}>72%</Text>
+</Box>
+```
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+- Sparkline uses Box primitives exclusively. No canvas or SVG.
+- Bar widths are computed as `Math.max(1, (width - (data.length - 1) * barGap) / data.length)` where `barGap` is 1px.
+- Bar heights are normalized: `(value - min) / range * height`, with a minimum of 1px.
+- Each bar has `borderRadius: 1` for subtle rounding.
+- The container uses `flexDirection: 'row'` and `alignItems: 'flex-end'` so bars grow upward from the bottom.
+- When `data` is empty, an empty Box with the specified `width` and `height` is rendered.
+
+=== CRITICAL RULES ===
+- The `data` prop is required. An empty array renders an empty placeholder.
+- Sparkline normalizes to the data's own min/max range, not 0-based. If all values are equal, the range defaults to 1, rendering all bars at minimum height.
+- The component has a fixed size based on `width` and `height`. It does not grow or shrink with its container. The `style` prop can override the container dimensions if needed.
+- For real-time data, pass a new array reference to `data` on each update. Sparkline re-renders whenever the data array changes.
+
+=== SEE ALSO ===
+- BarChart
+- ProgressBar

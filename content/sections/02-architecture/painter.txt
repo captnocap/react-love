@@ -1,0 +1,108 @@
+=== METADATA ===
+title: Target Painters
+description: How each target platform converts computed layout into visible output
+category: Architecture
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: painter, rendering, draw calls, love.graphics, ANSI, CSS, ComputerCraft, Cairo
+related: pipeline, layout-engine, transport
+difficulty: intermediate
+
+=== OVERVIEW ===
+After the layout engine computes positions and sizes for every node, the painter walks
+the tree and issues platform-specific draw calls. Each target has its own painter
+implementation. The painter reads the computed rect ({x, y, w, h}) and style properties
+from each node, then translates them into the target's native rendering API.
+
+The Love2D painter is the most full-featured, supporting backgrounds, borders, rounded
+corners, gradients, shadows, text rendering with font metrics, image display with
+object-fit modes, opacity propagation, stencil-based clipping, scissor rectangles,
+scroll containers, transforms, and z-index ordering.
+
+=== EXAMPLES ===
+Example 1: Love2D Painter (painter.lua)
+---
+The Love2D painter uses love.graphics calls to render every node type:
+
+View/Box nodes:
+  - Box shadow: Multiple fading rectangles to simulate blur
+  - Background gradient: Love2D mesh API with vertex colors
+  - Background color: love.graphics.rectangle("fill", ...)
+  - Border: love.graphics.rectangle("line", ...) or per-side lines
+  - Per-corner border radius: Arc + polygon rendering
+  - Outline: Drawn outside the border box
+  - Overflow hidden: Stencil (rounded) or scissor (rectangular) clipping
+  - Overflow scroll: Scissor clipping + love.graphics.translate for scroll offset
+  - Scrollbar indicators: Small rectangles on right/bottom edges
+
+Text nodes:
+  - Font cache: Fonts loaded by (size, family, weight) tuple
+  - Text alignment: love.graphics.printf with alignment parameter
+  - Text truncation: Binary search for ellipsis cutoff point
+  - numberOfLines: Wrap then truncate to line count
+  - lineHeight override: Manual line-by-line rendering
+  - letterSpacing: Character-by-character rendering (expensive)
+  - Text shadow: Draw text twice with offset
+  - Text decoration: Underline or strikethrough via love.graphics.line
+  - Bold simulation: Draw text twice with 0.8px offset (faux bold)
+
+Image nodes:
+  - objectFit modes: fill, contain, cover, none
+  - Border radius clipping via stencil
+  - Image cache managed by images.lua module
+
+Recursive tree walk:
+  - Opacity propagates multiplicatively down the tree
+  - Stencil depth tracks nested overflow:hidden contexts
+  - zIndex reorders paint order within each parent's children
+  - Transforms apply via love.graphics.push/pop matrix stack
+---
+Platforms: love2d
+
+Example 2: Web Painter (primitives.tsx)
+---
+The web "painter" is not a separate module -- it is built into the primitives.
+When RendererMode is 'web', Box renders as <div>, Text as <span>, Image as <img>.
+
+The styleToCSS() function converts the iLoveReact Style object to React
+CSSProperties:
+
+  - flexDirection, justifyContent, alignItems mapped with flex-start/flex-end
+  - Colors converted from [r,g,b,a] (0-1 range) to rgba() strings
+  - Gradients converted to CSS linear-gradient
+  - Transforms converted to CSS transform string
+  - Transitions mapped to CSS transition property
+  - boxShadow, textShadow composed from offset/blur/color
+  - outline composed from width/color/offset
+
+The browser handles layout natively via its own flexbox engine.
+---
+Platforms: web
+
+Example 3: Terminal Painter
+---
+The terminal painter (@ilovereact/terminal) uses ANSI truecolor escape sequences.
+The grid layout engine (@ilovereact/grid) computes character-cell positions.
+
+Each cell is a single character with foreground and background colors:
+  ESC[38;2;R;G;Bm    -- Set foreground (truecolor)
+  ESC[48;2;R;G;Bm    -- Set background (truecolor)
+  <character>         -- The cell content
+
+The painter writes to a buffer, then flushes the entire screen to stdout.
+---
+Platforms: terminal
+
+=== PLATFORM NOTES ===
+Love2D:       Pixel-perfect rendering. Full feature set. ~60fps paint loop.
+Web:          CSS flexbox. Browser handles layout. Near-complete feature parity.
+Terminal:     Character grid. No sub-pixel. Limited to terminal capabilities.
+ComputerCraft: 16-color palette. 51x19 character grid. Very constrained.
+Neovim:       Floating windows. Limited to Neovim's highlight groups.
+Hammerspoon:  hs.canvas pixel drawing. macOS only.
+AwesomeWM:    Cairo/Pango. Linux only. Full pixel control.
+
+=== SEE ALSO ===
+- layout-engine.txt - The stage before painting
+- 09-targets/love2d.txt - Love2D target details
+- 09-targets/web.txt - Web target details
+- 09-targets/terminal.txt - Terminal target details

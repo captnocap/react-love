@@ -1,0 +1,262 @@
+=== METADATA ===
+title: Composite Animations
+description: Combining animations with parallel, sequence, stagger, and loop.
+category: Animation
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: parallel, sequence, stagger, loop, composite, animation, combine, orchestrate, chain
+related: animatedvalue.txt, useanimation.txt, easing.txt
+difficulty: intermediate
+
+=== OVERVIEW ===
+iLoveReact provides four functions for composing multiple animations into coordinated
+sequences: parallel (run simultaneously), sequence (run one after another), stagger (start
+each with a delay offset), and loop (repeat an animation). All return an Animation object
+with start() and stop() methods, so they can themselves be composed into larger animations.
+
+These functions operate on Animation objects (returned by AnimatedValue.timing() and
+AnimatedValue.spring()), not on AnimatedValues directly. This means you create individual
+animations first, then compose them.
+
+=== API / SYNTAX ===
+All functions are imported from '@ilovereact/core':
+
+  import { parallel, sequence, stagger, loop } from '@ilovereact/core';
+
+parallel(animations: Animation[]): Animation
+  Starts all animations simultaneously. Completes when ALL animations finish.
+  The callback receives { finished: true } only if every animation finished naturally.
+  If any animation is stopped, finished is false.
+  Passing an empty array completes immediately with { finished: true }.
+
+sequence(animations: Animation[]): Animation
+  Runs animations one after another in order. Each animation starts when the previous
+  one finishes. If any animation in the sequence does not finish (stopped), the sequence
+  halts and reports { finished: false }.
+
+stagger(delay: number, animations: Animation[]): Animation
+  Starts each animation with an incremental delay. The first starts immediately, the
+  second after `delay` ms, the third after `2 * delay` ms, etc. Completes when all
+  animations finish.
+
+  delay: number    Milliseconds between each animation start.
+  animations: Animation[]    The animations to stagger.
+
+loop(animation: Animation, config?: { iterations?: number }): Animation
+  Repeats a single animation.
+
+  animation: Animation    The animation to repeat.
+  config.iterations?: number
+    Number of iterations. Default: -1 (infinite).
+    -1 = infinite loop (must be stopped manually).
+    Positive number = run that many times, then complete.
+
+All return Animation:
+  {
+    start(callback?: (result: { finished: boolean }) => void): void
+    stop(): void
+  }
+
+=== EXAMPLES ===
+Example 1: Parallel fade + slide
+---
+import { useEffect } from 'react';
+import { useAnimation, parallel, Box, Text } from '@ilovereact/core';
+
+function FadeSlideIn() {
+  const [opacityAnim, opacity] = useAnimation(0);
+  const [yAnim, y] = useAnimation(50);
+
+  useEffect(() => {
+    const anim = parallel([
+      opacityAnim.timing({ toValue: 1, duration: 500 }),
+      yAnim.timing({ toValue: 0, duration: 500 }),
+    ]);
+    anim.start();
+    return () => anim.stop();
+  }, [opacityAnim, yAnim]);
+
+  return (
+    <Box style={{
+      width: 200,
+      height: 80,
+      opacity,
+      backgroundColor: '#89b4fa',
+      borderRadius: 8,
+      transform: { translateY: y },
+    }}>
+      <Text style={{ fontSize: 18, color: '#1e1e2e' }}>Hello</Text>
+    </Box>
+  );
+}
+---
+Platforms: All
+
+Example 2: Sequential animation chain
+---
+import { useEffect } from 'react';
+import { useAnimation, sequence, Easing, Box } from '@ilovereact/core';
+
+function SequenceDemo() {
+  const [xAnim, x] = useAnimation(0);
+  const [yAnim, y] = useAnimation(0);
+  const [scaleAnim, scale] = useAnimation(1);
+
+  useEffect(() => {
+    const anim = sequence([
+      xAnim.timing({ toValue: 200, duration: 400, easing: Easing.easeOut }),
+      yAnim.timing({ toValue: 200, duration: 400, easing: Easing.easeOut }),
+      scaleAnim.spring({ toValue: 1.5, stiffness: 200, damping: 12 }),
+    ]);
+    anim.start();
+    return () => anim.stop();
+  }, [xAnim, yAnim, scaleAnim]);
+
+  return (
+    <Box style={{
+      width: 50,
+      height: 50,
+      backgroundColor: '#f38ba8',
+      borderRadius: 25,
+      transform: { translateX: x, translateY: y, scaleX: scale, scaleY: scale },
+    }} />
+  );
+}
+---
+Platforms: All
+
+Example 3: Staggered list appearance
+---
+import { useEffect } from 'react';
+import { useAnimation, stagger, Box, Text } from '@ilovereact/core';
+
+function StaggeredList() {
+  const [a1, v1] = useAnimation(0);
+  const [a2, v2] = useAnimation(0);
+  const [a3, v3] = useAnimation(0);
+  const [a4, v4] = useAnimation(0);
+
+  useEffect(() => {
+    const anim = stagger(100, [
+      a1.timing({ toValue: 1, duration: 300 }),
+      a2.timing({ toValue: 1, duration: 300 }),
+      a3.timing({ toValue: 1, duration: 300 }),
+      a4.timing({ toValue: 1, duration: 300 }),
+    ]);
+    anim.start();
+    return () => anim.stop();
+  }, [a1, a2, a3, a4]);
+
+  const items = [v1, v2, v3, v4];
+  const labels = ['Item A', 'Item B', 'Item C', 'Item D'];
+  const colors = ['#f38ba8', '#a6e3a1', '#89b4fa', '#f9e2af'];
+
+  return (
+    <Box style={{ width: '100%', height: '100%', padding: 20, gap: 8 }}>
+      {items.map((opacity, i) => (
+        <Box key={i} style={{
+          width: '100%',
+          height: 50,
+          opacity,
+          backgroundColor: colors[i],
+          borderRadius: 8,
+          padding: 12,
+          transform: { translateX: (1 - opacity) * 30 },
+        }}>
+          <Text style={{ fontSize: 16, color: '#1e1e2e' }}>{labels[i]}</Text>
+        </Box>
+      ))}
+    </Box>
+  );
+}
+---
+Platforms: All
+
+Example 4: Infinite pulsing loop
+---
+import { useEffect } from 'react';
+import { useAnimation, loop, sequence, Box } from '@ilovereact/core';
+
+function PulsingDot() {
+  const [scaleAnim, scale] = useAnimation(1);
+
+  useEffect(() => {
+    const pulse = loop(
+      sequence([
+        scaleAnim.timing({ toValue: 1.3, duration: 600 }),
+        scaleAnim.timing({ toValue: 1.0, duration: 600 }),
+      ]),
+      { iterations: -1 }
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [scaleAnim]);
+
+  return (
+    <Box style={{
+      width: 40,
+      height: 40,
+      backgroundColor: '#a6e3a1',
+      borderRadius: 20,
+      transform: { scaleX: scale, scaleY: scale },
+    }} />
+  );
+}
+---
+Platforms: All
+
+Example 5: Loop with finite iterations
+---
+import { useEffect } from 'react';
+import { useAnimation, loop, Box } from '@ilovereact/core';
+
+function ShakeBox() {
+  const [xAnim, x] = useAnimation(0);
+
+  useEffect(() => {
+    const shake = loop(
+      sequence([
+        xAnim.timing({ toValue: 10, duration: 50 }),
+        xAnim.timing({ toValue: -10, duration: 50 }),
+        xAnim.timing({ toValue: 0, duration: 50 }),
+      ]),
+      { iterations: 3 }
+    );
+    shake.start();
+    return () => shake.stop();
+  }, [xAnim]);
+
+  return (
+    <Box style={{
+      width: 100,
+      height: 100,
+      backgroundColor: '#f38ba8',
+      borderRadius: 8,
+      transform: { translateX: x },
+    }} />
+  );
+}
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+Composite animations work identically on all platforms. They coordinate Animation objects,
+which internally use the shared frame loop (requestAnimationFrame on web, setTimeout on
+Love2D/native).
+
+stagger uses setTimeout for the delay offsets. On platforms with imprecise timers, the
+actual delay between starts may vary slightly.
+
+=== CRITICAL RULES ===
+- All functions return Animation objects -- you must call .start() to begin
+- Always call .stop() in effect cleanup to prevent memory leaks and runaway animations
+- parallel completes when ALL animations finish -- one slow animation holds up the group
+- sequence halts if any animation is stopped (reports finished: false)
+- stagger delay is in milliseconds, applied cumulatively (0, delay, 2*delay, 3*delay, ...)
+- loop with iterations: -1 runs forever -- you MUST stop it manually
+- Composite animations can be nested: loop(sequence([parallel([...]), ...])) is valid
+- Empty animation arrays complete immediately with { finished: true }
+
+=== SEE ALSO ===
+- animatedvalue.txt -- Creating individual Animation objects
+- useanimation.txt -- React hook for animated values
+- easing.txt -- Easing functions used with timing animations

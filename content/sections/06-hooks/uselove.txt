@@ -1,0 +1,111 @@
+=== METADATA ===
+title: useLove
+description: Subscribe to Love2D events and get a send function for bidirectional communication.
+category: Hooks
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: useLove, hook, event, subscribe, send, bridge, state, communication
+related: useloveevent.txt, uselovestate.txt, uselovesend.txt
+difficulty: intermediate
+
+=== OVERVIEW ===
+useLove is the primary hook for subscribing to events from the Lua runtime and sending
+commands back to it. It returns a tuple of [state, send], where state is automatically
+updated whenever an event of the given type is received, and send is a function for
+dispatching commands to the Lua side.
+
+The hook maintains a React state that updates whenever the bridge receives an event matching
+the specified event type. The initial state is provided as the second argument and is used
+before any events arrive.
+
+=== API / SYNTAX ===
+Signature:
+  function useLove<T>(eventType: string, initialState: T): [T, (cmd: string, payload?: any) => void]
+
+Parameters:
+  eventType: string
+    The event type to subscribe to. Must match the event type dispatched by the Lua side
+    (e.g., 'game:state', 'player:health', 'inventory:update').
+
+  initialState: T
+    The initial value for the state before any events are received.
+
+Returns:
+  [state, send]
+
+  state: T
+    The current state, updated whenever an event of the given type is received. The event
+    payload replaces the state entirely.
+
+  send: (cmd: string, payload?: any) => void
+    Function to send commands to the Lua side. The cmd string identifies the command type,
+    and the optional payload provides additional data.
+
+=== EXAMPLES ===
+Example 1: Track game state
+---
+import { useLove } from '@ilovereact/core';
+
+function GameHUD() {
+  const [gameState, send] = useLove('game:state', { score: 0, level: 1, lives: 3 });
+
+  return (
+    <Box style={{ width: '100%', height: '100%', padding: 16 }}>
+      <Text style={{ fontSize: 24, color: '#cdd6f4' }}>{`Score: ${gameState.score}`}</Text>
+      <Text style={{ fontSize: 18, color: '#a6e3a1' }}>{`Level: ${gameState.level}`}</Text>
+      <Text style={{ fontSize: 18, color: '#f38ba8' }}>{`Lives: ${gameState.lives}`}</Text>
+      <Box style={{ width: 120, height: 40, backgroundColor: '#89b4fa', borderRadius: 8 }}
+           onClick={() => send('game:restart')}>
+        <Text style={{ fontSize: 16, color: '#1e1e2e' }}>Restart</Text>
+      </Box>
+    </Box>
+  );
+}
+---
+Platforms: All
+
+Example 2: Player movement controls
+---
+import { useLove } from '@ilovereact/core';
+
+function Controls() {
+  const [position, send] = useLove('player:position', { x: 0, y: 0 });
+
+  return (
+    <Box style={{ width: '100%', height: '100%' }}>
+      <Text style={{ fontSize: 14, color: '#cdd6f4' }}>
+        {`Position: ${position.x}, ${position.y}`}
+      </Text>
+      <Box style={{ flexDirection: 'row', width: '100%', gap: 8 }}>
+        <Box style={{ width: 60, height: 60, backgroundColor: '#313244' }}
+             onClick={() => send('player:move', { x: -10, y: 0 })}>
+          <Text style={{ fontSize: 20, color: '#cdd6f4' }}>Left</Text>
+        </Box>
+        <Box style={{ width: 60, height: 60, backgroundColor: '#313244' }}
+             onClick={() => send('player:move', { x: 10, y: 0 })}>
+          <Text style={{ fontSize: 20, color: '#cdd6f4' }}>Right</Text>
+        </Box>
+      </Box>
+    </Box>
+  );
+}
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+The hook works identically on all platforms. The bridge abstraction handles transport
+differences:
+- Love2D: Events arrive via QuickJS FFI bridge. Send dispatches via the same bridge.
+- Web: Events arrive via in-memory queue (Module.FS bridge). Send writes to the queue.
+- Grid targets: Events arrive via IPC/WebSocket. Send dispatches via the same channel.
+
+=== CRITICAL RULES ===
+- The event payload replaces the state entirely -- it is not merged
+- The send function is memoized (stable reference) and safe to use in callbacks
+- The hook re-subscribes when eventType changes -- use a stable string, not a computed value
+- Must be used inside a BridgeProvider context
+- The event type string must match exactly what the Lua side dispatches
+
+=== SEE ALSO ===
+- useLoveEvent -- Fire-and-forget event listener (no state tracking)
+- useLoveState -- Bidirectional shared state with automatic sync
+- useLoveSend -- Just the send function without event subscription

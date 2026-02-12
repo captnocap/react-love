@@ -1,0 +1,87 @@
+=== METADATA ===
+title: ilovereact update
+description: Sync framework runtime files from the CLI into the current project.
+category: CLI
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: update, sync, runtime, lua, lib, ilovereact, framework, cli-setup
+related: init.txt, build.txt
+difficulty: beginner
+
+=== OVERVIEW ===
+The `ilovereact update` command synchronizes the framework runtime files (lua/, lib/, and
+ilovereact/) from the CLI runtime directory into the current project. It replaces these
+directories entirely, bringing the project up to date with the latest framework code.
+
+This command never touches project-specific files (src/, main.lua, conf.lua, package.json).
+It is the second step in the framework update pipeline: first `make cli-setup` copies source-of-truth
+files into the CLI runtime, then `ilovereact update` copies from the CLI runtime into each project.
+
+=== API / SYNTAX ===
+Usage:
+  ilovereact update
+
+Prerequisite:
+  Must be run from inside an iLoveReact project directory (detected by presence of main.lua
+  or src/ directory).
+
+What it syncs:
+  cli/runtime/lua/         ->  <project>/lua/
+  cli/runtime/lib/         ->  <project>/lib/
+  cli/runtime/ilovereact/  ->  <project>/ilovereact/
+
+What it does NOT touch:
+  src/              Project source code
+  main.lua          Love2D entry point
+  conf.lua          Love2D configuration
+  package.json      Project dependencies
+  packaging/        Build customizations
+
+The update is destructive for the synced directories -- existing lua/, lib/, and ilovereact/
+directories are deleted and replaced entirely.
+
+=== EXAMPLES ===
+Example 1: After editing framework source files
+---
+# Edit source-of-truth files:
+#   lua/layout.lua
+#   packages/shared/src/primitives.tsx
+
+# Propagate to CLI runtime:
+make cli-setup
+
+# Sync into project:
+cd examples/storybook
+ilovereact update
+
+# Rebuild:
+ilovereact build
+---
+Platforms: All
+
+Example 2: Hydrate an existing project
+---
+cd my-project
+ilovereact update
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+The update command works for all targets. The synced files include Lua runtime (needed for
+Love2D), the QuickJS shared library (needed for Love2D FFI bridge), and the TypeScript
+framework packages (needed for all targets).
+
+Note: `ilovereact build` runs update automatically before building (unless --no-update is
+passed). You only need to run update manually when using `ilovereact dev` or `love .`
+directly.
+
+=== CRITICAL RULES ===
+- Always run `make cli-setup` in the monorepo root BEFORE running `ilovereact update`
+- The CLI runtime must be populated (`cli/runtime/lua/` and `cli/runtime/ilovereact/` must exist)
+- Never edit lua/, lib/, or ilovereact/ in a project directly -- those are disposable copies managed by update
+- The update deletes and replaces the target directories entirely -- any local modifications are lost
+- Must be run from inside an iLoveReact project directory
+
+=== SEE ALSO ===
+- init.txt -- Initial project creation (includes the first sync)
+- build.txt -- Build command runs update automatically
+- ../04-layout-system/critical-rules.txt -- Layout rules enforced after update

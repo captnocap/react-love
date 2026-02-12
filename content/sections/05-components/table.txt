@@ -1,0 +1,162 @@
+=== METADATA ===
+title: Table
+description: Data table with configurable columns, alignment, striping, and custom cell renderers.
+category: Components
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: table, data, grid, columns, rows, striped, tabular
+related: FlatList, BarChart
+difficulty: beginner
+
+=== OVERVIEW ===
+Table renders a structured data grid with a header row and data rows. Each column is defined by a configuration object that specifies the key to read from each data row, the column title, optional width, alignment, and a custom render function.
+
+Table supports striped row backgrounds, borderless mode, and per-section style overrides for the header, rows, and cells. It uses Box and Text primitives internally, so it works identically on both web and native targets.
+
+=== API / SYNTAX ===
+Import: import { Table } from '@ilovereact/core';
+
+TableColumn<T> type:
+```ts
+interface TableColumn<T = any> {
+  key: string;
+  title: string;
+  width?: number | string;
+  align?: 'left' | 'center' | 'right';
+  render?: (value: any, row: T, index: number) => ReactNode;
+}
+```
+
+TableProps<T> type:
+```ts
+interface TableProps<T = any> {
+  columns: TableColumn<T>[];
+  data: T[];
+  rowKey?: string | ((row: T, index: number) => string);
+  striped?: boolean;
+  borderless?: boolean;
+  headerStyle?: Style;
+  rowStyle?: Style;
+  cellStyle?: Style;
+  style?: Style;
+}
+```
+
+Usage:
+```tsx
+<Table
+  columns={[
+    { key: 'name', title: 'Name' },
+    { key: 'role', title: 'Role', width: 100 },
+    { key: 'status', title: 'Status', align: 'center', width: 80 },
+  ]}
+  data={[
+    { name: 'Alice', role: 'Engineer', status: 'Active' },
+    { name: 'Bob', role: 'Designer', status: 'Away' },
+  ]}
+  striped
+/>
+```
+
+Props:
+
+| Prop        | Type                                          | Default | Description                                |
+|-------------|-----------------------------------------------|---------|--------------------------------------------|
+| columns     | TableColumn<T>[]                              | (required)| Column definitions                       |
+| data        | T[]                                           | (required)| Array of row data objects                 |
+| rowKey      | string \| ((row: T, index: number) => string) | -       | Key field or function for row identity     |
+| striped     | boolean                                       | false   | Alternate row background colors            |
+| borderless  | boolean                                       | false   | Remove all borders                         |
+| headerStyle | Style                                         | -       | Style overrides for the header row         |
+| rowStyle    | Style                                         | -       | Style overrides for each data row          |
+| cellStyle   | Style                                         | -       | Style overrides for each cell              |
+| style       | Style                                         | -       | Outer container style                      |
+
+=== EXAMPLES ===
+Example 1: Simple striped table
+---
+```tsx
+<Table
+  columns={[
+    { key: 'name', title: 'Name' },
+    { key: 'score', title: 'Score', align: 'right', width: 60 },
+  ]}
+  data={[
+    { name: 'Alice', score: 95 },
+    { name: 'Bob', score: 87 },
+    { name: 'Carol', score: 92 },
+  ]}
+  striped
+  rowKey="name"
+  style={{ width: '100%' }}
+/>
+```
+---
+Platforms: All
+
+Example 2: Custom cell renderer
+---
+```tsx
+<Table
+  columns={[
+    { key: 'name', title: 'Service' },
+    {
+      key: 'status',
+      title: 'Status',
+      width: 80,
+      align: 'center',
+      render: (value) => (
+        <Box style={{
+          backgroundColor: value === 'up' ? '#22c55e' : '#ef4444',
+          borderRadius: 4,
+          padding: 2,
+          paddingLeft: 6,
+          paddingRight: 6,
+        }}>
+          <Text style={{ color: '#ffffff', fontSize: 10 }}>{value}</Text>
+        </Box>
+      ),
+    },
+  ]}
+  data={[
+    { name: 'API', status: 'up' },
+    { name: 'Database', status: 'down' },
+  ]}
+  style={{ width: 300 }}
+/>
+```
+---
+Platforms: All
+
+Example 3: Borderless table
+---
+```tsx
+<Table
+  columns={[
+    { key: 'label', title: 'Metric' },
+    { key: 'value', title: 'Value', align: 'right' },
+  ]}
+  data={metrics}
+  borderless
+/>
+```
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+- Table uses Box and Text primitives, so it renders identically on web and native targets.
+- Default colors: header background `#1e293b`, header text `#e2e8f0`, row background `#0f172a`, alternate row `#1e293b`, cell text `#cbd5e1`, border color `#334155`.
+- Header text is `fontSize: 11`, `fontWeight: 'bold'`. Cell text is `fontSize: 11` with `numberOfLines: 1` (truncation).
+- Columns without an explicit `width` use `flexGrow: 1, flexShrink: 1` to fill available space. Columns with a fixed `width` use `flexGrow: 0, flexShrink: 0`.
+- Column alignment maps: `'left'` -> `alignItems: 'start'`, `'center'` -> `alignItems: 'center'`, `'right'` -> `alignItems: 'end'`.
+
+=== CRITICAL RULES ===
+- The `columns` and `data` props are both required. An empty `data` array renders only the header row.
+- Each column's `key` must match a property name in the data objects. If the key does not exist on a row, the cell displays an empty string.
+- When using `render`, the custom renderer receives the raw cell value, the full row object, and the row index. It must return a ReactNode. The default renderer wraps the value in a Text element with `numberOfLines: 1`.
+- Without `rowKey`, rows are keyed by their array index. For data that changes order, provide a stable `rowKey` (either a string property name or a function).
+- Table does NOT scroll. For scrollable tables, wrap Table in a ScrollView or use FlatList with custom rendering.
+
+=== SEE ALSO ===
+- FlatList
+- BarChart
+- Box

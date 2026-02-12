@@ -1,0 +1,91 @@
+=== METADATA ===
+title: Source-of-Truth Architecture
+description: Critical guide to file organization, editing rules, and the sync pipeline
+category: Architecture
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: source of truth, sync, cli-setup, ilovereact update, editing rules, file organization, copies
+related: pipeline, installation
+difficulty: intermediate
+
+=== OVERVIEW ===
+iLoveReact has two categories of files: globally distributed framework files and
+project-specific application files. Editing the wrong copy is the number one source of
+"it builds but does not work" bugs. Framework files have a single source of truth at the
+monorepo root. They are copied into projects by the CLI. Application files are unique to
+each project and are safe to edit directly.
+
+Understanding this distinction and following the sync pipeline is critical for any work
+that touches framework internals.
+
+=== API / SYNTAX ===
+Source-of-Truth Locations:
+  lua/*.lua                    -> Lua runtime (layout, painter, tree, events, etc.)
+  packages/shared/src/         -> Core primitives, components, hooks, animation, types
+  packages/native/src/         -> React reconciler, host config, bridge, entry points
+  quickjs/libquickjs.so        -> QuickJS shared library
+
+Copy Destinations (managed by tooling, NEVER edit directly):
+  cli/runtime/lua/             <- make cli-setup copies lua/*.lua here
+  cli/runtime/ilovereact/shared/ <- make cli-setup copies packages/shared/ here
+  cli/runtime/ilovereact/native/ <- make cli-setup copies packages/native/ here
+  cli/runtime/lib/             <- make cli-setup copies quickjs/libquickjs.so here
+  <project>/lua/               <- ilovereact update copies here
+  <project>/ilovereact/shared/ <- ilovereact update copies here
+  <project>/ilovereact/native/ <- ilovereact update copies here
+  <project>/lib/               <- ilovereact update copies here
+
+Project-Specific Files (safe to edit directly):
+  src/                         - Application code (App.tsx, stories, etc.)
+  main.lua                     - Love2D entry point
+  conf.lua                     - Love2D configuration
+  package.json                 - Project dependencies
+  packaging/                   - Build customizations
+
+=== EXAMPLES ===
+Example 1: The Sync Pipeline
+---
+When you edit a framework file (e.g., lua/layout.lua or packages/shared/src/types.ts):
+
+  # Step 1: Edit the source-of-truth file at the monorepo root
+  vim lua/layout.lua
+
+  # Step 2: Propagate to CLI runtime
+  make cli-setup
+
+  # Step 3: For each project that needs the change
+  cd examples/storybook
+  ilovereact update          # Syncs lua/, lib/, ilovereact/ from CLI runtime
+  ilovereact build dist:love # Rebuild with new code
+---
+Platforms: All
+
+Example 2: Adding a New Lua-Side Feature (Checklist)
+---
+1. Edit/create files in lua/ (the source of truth)
+2. Edit/create files in packages/shared/src/ and packages/native/src/ as needed
+3. Run: make cli-setup
+4. For each example project that needs the feature:
+   cd examples/<project>
+   ilovereact update
+   ilovereact build dist:love
+5. For new projects: ilovereact init <name> gets everything automatically
+---
+Platforms: All
+
+=== CRITICAL RULES ===
+- ALWAYS edit source-of-truth files (lua/, packages/shared/, packages/native/).
+- NEVER edit copies (cli/runtime/, <project>/lua/, <project>/ilovereact/).
+  Those are disposable and will be overwritten by the next sync.
+- After editing any source-of-truth file, run the full sync pipeline:
+  make cli-setup, then ilovereact update in affected projects.
+- ilovereact update syncs lua/, lib/, and ilovereact/ from CLI runtime into
+  the project. It NEVER touches src/ (your application code is safe).
+- ilovereact init creates starter versions of src/, main.lua, conf.lua.
+  ilovereact update never touches those files.
+- ilovereact build dist:love has a fallback: if no local lua/ exists, it reads
+  from cli/runtime/lua/. But ilovereact dev and love . require local copies,
+  so always run ilovereact update for dev workflows.
+
+=== SEE ALSO ===
+- 01-getting-started/installation.txt - Initial setup including make cli-setup
+- 11-troubleshooting/common-errors.txt - "Runtime files outdated" and similar issues

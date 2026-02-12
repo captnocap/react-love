@@ -1,0 +1,34 @@
+=== METADATA ===
+title: Advanced Topics
+description: Hub page for advanced iLoveReact documentation
+category: Advanced
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: advanced, lua runtime, events, performance, debugging, custom targets
+related: lua-runtime, event-handling, performance, debugging, custom-targets
+difficulty: advanced
+
+=== OVERVIEW ===
+This section covers the internals of iLoveReact for developers who need to understand
+what happens beneath the component API. Topics include the complete Lua runtime module
+inventory, the event dispatch system, performance optimization strategies, debugging
+tools, and how to create new render targets.
+
+These topics assume familiarity with the rendering pipeline (see 02-architecture/) and
+the component API (see 05-components/).
+
+=== EXAMPLES ===
+Example 1: Section Contents
+---
+10-advanced/
+  lua-runtime.txt    - All 19 Lua modules and their roles
+  event-handling.txt - Event system, bubbling, dispatch
+  performance.txt    - Optimization tips
+  debugging.txt      - F12 inspector, console, error overlay
+  custom-targets.txt - Building your own render target
+---
+Platforms: All
+
+=== SEE ALSO ===
+- lua-runtime.txt - Start here for Lua internals
+- 02-architecture/pipeline.txt - Prerequisite: understanding the pipeline
+- 11-troubleshooting/index.txt - Practical problem solving

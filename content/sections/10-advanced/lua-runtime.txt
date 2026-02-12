@@ -1,0 +1,127 @@
+=== METADATA ===
+title: Lua Runtime Internals
+description: Complete inventory of all 19 Lua modules that power the Love2D target
+category: Advanced
+platforms: love2d
+keywords: lua, runtime, modules, init, layout, painter, tree, events, bridge, measure, animate
+related: pipeline, layout-engine, painter, event-handling
+difficulty: advanced
+
+=== OVERVIEW ===
+The Lua runtime consists of 19 modules that collectively implement the rendering
+pipeline for the Love2D target. The entry point is init.lua, which detects the
+operating mode, loads the appropriate bridge, and initializes all submodules. On every
+frame, the runtime ticks the JavaScript engine, drains mutation commands, advances
+animations, runs layout, and paints the tree.
+
+All Lua files live at lua/ in the monorepo root (source of truth) and are copied into
+projects via `make cli-setup` and `ilovereact update`.
+
+=== API / SYNTAX ===
+Module Inventory:
+
+  init.lua           - Entry point. Detects mode (native/web/canvas), loads all
+                       modules, implements love.update/draw/input callbacks.
+                       Manages HMR, interaction styles, deferred mount protocol.
+
+  tree.lua           - Retained instance tree. Receives mutation commands from JS
+                       (createNode, updateProps, appendChild, removeChild, etc.)
+                       and maintains the live node tree. Tracks dirty state.
+
+  layout.lua         - Flexbox layout engine. Computes {x, y, w, h} for every node.
+                       Handles flex-grow/shrink, wrap, justify, align, padding,
+                       margin, gap, text measurement, min/max clamping.
+
+  painter.lua        - Love2D painter. Walks computed tree and issues love.graphics
+                       calls. Handles backgrounds, borders, text, images, shadows,
+                       gradients, transforms, opacity, clipping, scrollbars.
+
+  events.lua         - Event handling. Hit testing, hover tracking, drag state,
+                       event creation (click, release, keydown, wheel, touch,
+                       gamepad), bubble path construction.
+
+  measure.lua        - Text measurement. Font loading/caching by (size, family,
+                       weight) tuple. measureText() for layout, getFont() for
+                       painter. Letter spacing width calculation.
+
+  bridge_quickjs.lua - QuickJS FFI bridge. Loads libquickjs.so via LuaJIT FFI.
+                       eval(), callGlobal(), tick(), drainCommands(), pushEvent().
+
+  bridge_fs.lua      - Module.FS bridge. File-based communication via Emscripten
+                       shared filesystem. poll(), flush(), emit().
+
+  animate.lua        - Lua-side transitions and keyframe animations. Processes
+                       CSS-style transition declarations and animation keyframes.
+                       Interpolates style values per frame.
+
+  images.lua         - Image loading and caching. Manages love.graphics.newImage
+                       instances. Handles async loading and placeholder display.
+
+  focus.lua          - Focus manager for Lua-owned inputs (TextEditor). Tracks
+                       which node has focus, handles focus/blur transitions.
+
+  texteditor.lua     - Lua-owned multi-line text editor. Handles cursor, selection,
+                       line numbers, scrolling, key input, mouse selection.
+                       Renders directly via love.graphics calls.
+
+  errors.lua         - Error overlay. Displays runtime errors as a full-screen
+                       overlay with stack traces. Uses raw love.graphics calls
+                       (independent of the tree/layout system).
+
+  inspector.lua      - Visual inspector (F12). Shows node boundaries, computed
+                       dimensions, style properties. Highlights hovered nodes.
+                       Displays layout timing and paint timing.
+
+  console.lua        - Interactive eval console (backtick key). Evaluates JS
+                       expressions via the bridge and displays results.
+
+  screenshot.lua     - Headless screenshot capture. Waits for the first stable
+                       frame, captures the framebuffer, saves as PNG.
+
+  zindex.lua         - Z-index sorting. Returns paint-ordered child lists based
+                       on zIndex style property (stable sort, ascending).
+
+  storage.lua        - Persistent storage RPC handlers. Provides get/set/remove
+                       methods backed by love.filesystem.
+
+  target_love2d.lua  - Love2D target configuration. Contains target-specific
+                       constants and setup.
+
+=== EXAMPLES ===
+Example 1: Module Loading Order (Native Mode)
+---
+When ReactLove.init() is called in native mode:
+
+  1. resolveBasePath()                  -- Find the lua/ directory
+  2. require("lua.bridge_quickjs")      -- Load QuickJS FFI bridge
+  3. BridgeQJS.new(libpath)             -- Create bridge with libquickjs.so
+  4. require("lua.measure")             -- Text measurement module
+  5. require("lua.images")              -- Image cache
+  6. require("lua.animate")             -- Animation engine
+  7. require("lua.tree")                -- Retained tree
+  8. tree.init({ images, animate })     -- Wire dependencies
+  9. animate.init({ tree })             -- Wire back-reference
+  10. require("lua.layout")             -- Layout engine
+  11. layout.init({ measure })          -- Wire text measurement
+  12. require("lua.painter")            -- Painter
+  13. painter.init({ measure, images }) -- Wire dependencies
+  14. require("lua.events")             -- Event system
+  15. events.setTreeModule(tree)         -- Wire tree reference
+  16. require("lua.texteditor")         -- Text editor
+  17. texteditor.init({ measure })      -- Wire measurement
+  18. bridge:eval(bundleJS)             -- Load the JS bundle into QuickJS
+
+  Always-loaded (independent, no init):
+  - require("lua.errors")              -- Error overlay
+  - require("lua.inspector")           -- F12 inspector
+  - require("lua.console")             -- Backtick console
+  - require("lua.focus")               -- Focus manager
+---
+Platforms: love2d
+
+=== SEE ALSO ===
+- 02-architecture/pipeline.txt - How these modules fit together
+- 02-architecture/layout-engine.txt - layout.lua deep dive
+- 02-architecture/painter.txt - painter.lua deep dive
+- event-handling.txt - events.lua deep dive
+- debugging.txt - inspector.lua, console.lua, errors.lua

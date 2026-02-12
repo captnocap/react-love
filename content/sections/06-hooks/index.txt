@@ -1,0 +1,96 @@
+=== METADATA ===
+title: Hooks
+description: Overview of iLoveReact hooks for Love2D communication, state sharing, and event handling.
+category: Hooks
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: hooks, useLove, useLoveEvent, useLoveRPC, useLoveState, useLoveReady, useLoveSend, useLoveOverlays, bridge
+related: uselove.txt, useloveevent.txt, useloverpc.txt, uselovestate.txt, useloveready.txt, uselovesend.txt, useloveoverlays.txt
+difficulty: intermediate
+
+=== OVERVIEW ===
+iLoveReact provides a set of React hooks for communicating between the React component tree
+and the Lua runtime (or any target-specific backend). These hooks consume the bridge
+interface (IBridge) via React context, so they work identically regardless of the transport
+layer (Module.FS for web, QuickJS FFI for native Love2D, WebSocket for remote targets).
+
+The hooks cover three patterns: event subscription (useLove, useLoveEvent), RPC calls
+(useLoveRPC), and shared state (useLoveState). Additional utility hooks provide readiness
+detection (useLoveReady), fire-and-forget sending (useLoveSend), and DOM overlay positioning
+(useLoveOverlays, web mode only).
+
+=== API / SYNTAX ===
+All hooks are imported from '@ilovereact/core':
+
+  import {
+    useLove,
+    useLoveEvent,
+    useLoveRPC,
+    useLoveState,
+    useLoveReady,
+    useLoveSend,
+    useLoveOverlays,
+  } from '@ilovereact/core';
+
+All hooks require a BridgeProvider ancestor in the component tree, which is set up
+automatically by the framework's entry point.
+
+=== EXAMPLES ===
+Example 1: Subscribe to events and send commands
+---
+import { useLove } from '@ilovereact/core';
+
+function GameHUD() {
+  const [health, send] = useLove('player:health', 100);
+  return (
+    <Box style={{ width: '100%', height: '100%' }}
+         onClick={() => send('player:heal', { amount: 20 })}>
+      <Text style={{ fontSize: 24, color: '#cdd6f4' }}>{`HP: ${health}`}</Text>
+    </Box>
+  );
+}
+---
+Platforms: All
+
+Example 2: Bidirectional shared state
+---
+import { useLoveState } from '@ilovereact/core';
+
+function Settings() {
+  const [volume, setVolume] = useLoveState('settings.volume', 0.8);
+  return (
+    <Box style={{ width: '100%', height: 50 }}
+         onClick={() => setVolume(volume > 0 ? 0 : 0.8)}>
+      <Text style={{ fontSize: 16, color: '#cdd6f4' }}>
+        {`Volume: ${Math.round(volume * 100)}%`}
+      </Text>
+    </Box>
+  );
+}
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+All hooks work on all platforms via the bridge abstraction. The bridge implementation varies
+by target:
+- Love2D native: QuickJS FFI bridge (bridge_quickjs.lua)
+- Web: Module.FS bridge (in-memory event queue)
+- Terminal/grid targets: Bridge over IPC or WebSocket
+
+useLoveOverlays is only meaningful in web mode where React controls the DOM and needs to
+position HTML overlays relative to a canvas element.
+
+=== CRITICAL RULES ===
+- All hooks require BridgeProvider context -- they will throw if used outside it
+- useLoveEvent uses a ref for the handler to avoid re-subscribing on handler changes
+- useLoveState updates both local React state and Lua-side state bidirectionally
+- useLoveRPC returns an async function -- always await the result
+- Hook event type strings must match the event types dispatched by the Lua side
+
+=== SEE ALSO ===
+- uselove.txt -- Event subscription with send function
+- useloveevent.txt -- Fire-and-forget event listener
+- useloverpc.txt -- RPC calls to Lua
+- uselovestate.txt -- Bidirectional shared state
+- useloveready.txt -- Bridge readiness detection
+- uselovesend.txt -- Fire-and-forget send function
+- useloveoverlays.txt -- DOM overlay positioning (web mode)

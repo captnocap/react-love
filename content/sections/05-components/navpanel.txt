@@ -1,0 +1,163 @@
+=== METADATA ===
+title: NavPanel
+description: Sidebar navigation panel with grouped sections, active item highlighting, and optional header slot.
+category: Components
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: navigation, sidebar, panel, menu, sections, nav
+related: Tabs, Breadcrumbs
+difficulty: beginner
+
+=== OVERVIEW ===
+NavPanel renders a vertical sidebar navigation component organized into titled sections. Each section contains a list of selectable items. The currently active item is highlighted with a distinct background and text color, and hovering over items provides visual feedback via Pressable.
+
+An optional header slot renders arbitrary content at the top of the panel, separated from the sections by a divider line. NavPanel uses a fixed width by default but can be customized via the `width` prop or `style` overrides.
+
+=== API / SYNTAX ===
+Import: import { NavPanel } from '@ilovereact/core';
+
+NavItem type:
+```ts
+interface NavItem {
+  id: string;
+  label: string;
+}
+```
+
+NavSection type:
+```ts
+interface NavSection {
+  title: string;
+  items: NavItem[];
+}
+```
+
+Usage:
+```tsx
+<NavPanel
+  sections={[
+    {
+      title: 'General',
+      items: [
+        { id: 'dashboard', label: 'Dashboard' },
+        { id: 'settings', label: 'Settings' },
+      ],
+    },
+    {
+      title: 'Data',
+      items: [
+        { id: 'reports', label: 'Reports' },
+        { id: 'analytics', label: 'Analytics' },
+      ],
+    },
+  ]}
+  activeId="dashboard"
+  onSelect={(id) => setPage(id)}
+/>
+```
+
+Props:
+
+| Prop     | Type                       | Default | Description                            |
+|----------|----------------------------|---------|----------------------------------------|
+| sections | NavSection[]               | (required)| Array of navigation sections         |
+| activeId | string                     | -       | ID of the currently active item        |
+| onSelect | (id: string) => void       | -       | Called when an item is clicked         |
+| header   | ReactNode                  | -       | Content rendered at the top of panel   |
+| width    | number                     | 180     | Panel width in pixels                  |
+| style    | Style                      | -       | Container style overrides              |
+
+=== EXAMPLES ===
+Example 1: Basic sidebar navigation
+---
+```tsx
+const [page, setPage] = useState('home');
+
+<NavPanel
+  sections={[
+    {
+      title: 'Navigation',
+      items: [
+        { id: 'home', label: 'Home' },
+        { id: 'explore', label: 'Explore' },
+        { id: 'library', label: 'Library' },
+      ],
+    },
+  ]}
+  activeId={page}
+  onSelect={setPage}
+/>
+```
+---
+Platforms: All
+
+Example 2: With header and multiple sections
+---
+```tsx
+<NavPanel
+  header={
+    <Text style={{ fontSize: 14, color: '#e2e8f0', fontWeight: 'bold' }}>
+      My App
+    </Text>
+  }
+  sections={[
+    {
+      title: 'Main',
+      items: [
+        { id: 'dashboard', label: 'Dashboard' },
+        { id: 'projects', label: 'Projects' },
+      ],
+    },
+    {
+      title: 'Account',
+      items: [
+        { id: 'profile', label: 'Profile' },
+        { id: 'settings', label: 'Settings' },
+      ],
+    },
+  ]}
+  activeId="dashboard"
+  onSelect={(id) => navigate(id)}
+  width={200}
+/>
+```
+---
+Platforms: All
+
+Example 3: Full-height sidebar in layout
+---
+```tsx
+<Box style={{ flexDirection: 'row', width: '100%', height: '100%' }}>
+  <NavPanel
+    sections={sections}
+    activeId={currentPage}
+    onSelect={setCurrentPage}
+    style={{ height: '100%' }}
+  />
+  <Box style={{ flexGrow: 1 }}>
+    {/* Page content */}
+  </Box>
+</Box>
+```
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+- NavPanel uses Pressable for each navigation item, providing hover feedback.
+- Default background: `#0c0c14` with a `1px` border in `#1e293b`.
+- Section titles are rendered in uppercase (`section.title.toUpperCase()`), `fontSize: 9`, `color: '#334155'`, with `paddingLeft: 12`.
+- Active item: `backgroundColor: '#1e293b'`, text `color: '#e2e8f0'`.
+- Inactive item: `backgroundColor: 'transparent'` (hovered: `#111827`), text `color: '#64748b'`.
+- Item text is `fontSize: 11` with `paddingLeft: 16`.
+- The header slot has `padding: 12` and is separated from sections by a 1px divider line in `#1e293b`.
+- The panel uses `overflow: 'scroll'` to handle content that exceeds the panel height.
+
+=== CRITICAL RULES ===
+- The `sections` prop is required. An empty array renders only the background panel with optional header.
+- `activeId` is compared against each item's `id` for highlighting. If no item matches, no item is highlighted.
+- NavPanel has a fixed `width` (default 180). It does not grow to fill its container. Override with `style={{ flexGrow: 1 }}` or set an explicit `width` if needed.
+- The header slot renders any ReactNode. It is not affected by section styling.
+
+=== SEE ALSO ===
+- Tabs
+- Breadcrumbs
+- Pressable

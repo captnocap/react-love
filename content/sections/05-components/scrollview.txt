@@ -1,0 +1,151 @@
+=== METADATA ===
+title: ScrollView
+description: Scrollable container with imperative scrollTo API
+category: Components
+platforms: love2d, web
+keywords: scroll, scrollview, overflow, scrollbar, horizontal, vertical, scrollTo, imperative
+related: Box, FlatList
+difficulty: intermediate
+
+=== OVERVIEW ===
+ScrollView is a scrollable container that clips its children to its bounds and allows scrolling to reveal overflow content. It supports both vertical (default) and horizontal scrolling, optional scroll indicators, and scroll lifecycle callbacks. ScrollView also exposes an imperative scrollTo() method via React.forwardRef, letting you programmatically scroll to a specific position with optional animation.
+
+In web mode, ScrollView renders as a `<div>` with overflow: auto and CSS-based scrolling. In native mode, it outputs a `'View'` host element with overflow: 'scroll', and the Lua layout engine handles scissor clipping, scroll translation, scrollbar rendering, and wheel event processing.
+
+=== API / SYNTAX ===
+```tsx
+import { ScrollView } from '@ilovereact/core';
+import type { ScrollViewRef, ScrollEvent } from '@ilovereact/core';
+```
+
+```tsx
+const scrollRef = React.useRef<ScrollViewRef>(null);
+
+<ScrollView
+  ref={scrollRef}
+  style={{ width: '100%', height: 300 }}
+  onScroll={(event) => console.log(event.scrollY)}
+>
+  {/* content taller than 300px */}
+</ScrollView>
+```
+
+Props:
+| Prop                | Type                             | Default   | Description                              |
+|---------------------|----------------------------------|-----------|------------------------------------------|
+| style               | Style                            | undefined | Container sizing and visual styling      |
+| horizontal          | boolean                          | false     | Scroll horizontally instead of vertically|
+| showScrollIndicator | boolean                          | true      | Show scrollbar indicator                 |
+| onScroll            | (event: ScrollEvent) => void     | undefined | Fires during scrolling                   |
+| onScrollBegin       | () => void                       | undefined | Fires when scrolling starts              |
+| onScrollEnd         | () => void                       | undefined | Fires when scrolling stops               |
+| children            | ReactNode                        | undefined | Scrollable content                       |
+
+ScrollEvent:
+```ts
+interface ScrollEvent {
+  scrollX: number;        // Current horizontal scroll offset
+  scrollY: number;        // Current vertical scroll offset
+  contentWidth: number;   // Total width of scrollable content
+  contentHeight: number;  // Total height of scrollable content
+}
+```
+
+ScrollViewRef (imperative API):
+```ts
+interface ScrollViewRef {
+  scrollTo(options: {
+    x?: number;        // Target horizontal offset
+    y?: number;        // Target vertical offset
+    animated?: boolean; // Smooth scroll animation (default: false)
+  }): void;
+}
+```
+
+=== EXAMPLES ===
+Example 1: Basic vertical scroll
+---
+```tsx
+<ScrollView style={{ width: '100%', height: 200 }}>
+  {Array.from({ length: 20 }, (_, i) => (
+    <Box key={i} style={{ padding: 12, borderBottomWidth: 1, borderColor: '#313244' }}>
+      <Text style={{ fontSize: 14, color: '#cdd6f4' }}>{`Item ${i + 1}`}</Text>
+    </Box>
+  ))}
+</ScrollView>
+```
+---
+Platforms: Love2D, Web
+
+Example 2: Horizontal scroll
+---
+```tsx
+<ScrollView horizontal style={{ width: '100%', height: 100 }}>
+  {Array.from({ length: 10 }, (_, i) => (
+    <Box key={i} style={{ width: 120, height: 80, margin: 8, backgroundColor: '#313244', borderRadius: 8 }}>
+      <Text style={{ fontSize: 12, color: '#cdd6f4' }}>{`Card ${i + 1}`}</Text>
+    </Box>
+  ))}
+</ScrollView>
+```
+---
+Platforms: Love2D, Web
+
+Example 3: Imperative scrollTo
+---
+```tsx
+const scrollRef = React.useRef<ScrollViewRef>(null);
+
+<Box style={{ width: '100%', height: '100%' }}>
+  <Pressable onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}>
+    <Text style={{ fontSize: 14, color: '#89b4fa' }}>Back to top</Text>
+  </Pressable>
+
+  <ScrollView ref={scrollRef} style={{ width: '100%', flexGrow: 1 }}>
+    {/* long content */}
+  </ScrollView>
+</Box>
+```
+---
+Platforms: Love2D, Web
+
+Example 4: Hidden scrollbar with scroll tracking
+---
+```tsx
+const [progress, setProgress] = useState(0);
+
+<ScrollView
+  style={{ width: '100%', height: 400 }}
+  showScrollIndicator={false}
+  onScroll={(e) => {
+    const maxScroll = e.contentHeight - 400;
+    setProgress(maxScroll > 0 ? e.scrollY / maxScroll : 0);
+  }}
+>
+  {/* content */}
+</ScrollView>
+```
+---
+Platforms: Love2D, Web
+
+=== PLATFORM NOTES ===
+Love2D:
+  The Lua layout engine implements scroll by translating child positions within a scissor-clipped region. Wheel events adjust scroll position. Scroll indicators are drawn as thin overlay rectangles by the painter. The imperative scrollTo() updates style.scrollX/scrollY which the layout engine reads on the next pass. Animated scrolling is handled natively in Lua.
+
+Web:
+  Uses native browser scrolling via overflow: auto. Horizontal mode sets overflowX: auto and overflowY: hidden (and vice versa for vertical). showScrollIndicator: false hides the scrollbar using scrollbarWidth: 'none' (Firefox) and msOverflowStyle: 'none' (legacy Edge). Webkit/Blink scrollbar hiding requires CSS pseudo-element styling not achievable via inline styles alone. The imperative scrollTo() calls element.scrollTo() with behavior: 'smooth' when animated is true. onScrollEnd is detected via 150ms debounce after the last scroll event.
+
+Terminal:
+  Not directly available on grid targets. Grid layouts are fixed-size and do not scroll. For large datasets on grid targets, use pagination or FlatList-style windowing.
+
+=== CRITICAL RULES ===
+- ScrollView MUST have a constrained size (explicit width/height or parent constraints). Without a known size, there is nothing to overflow and nothing to scroll.
+- Do not nest ScrollViews in the same axis. A vertical ScrollView inside another vertical ScrollView creates ambiguous scroll targets. Cross-axis nesting (horizontal inside vertical) is acceptable.
+- When horizontal is true, the default flexDirection becomes 'row'. Children lay out left to right.
+- Use FlatList instead of ScrollView for long lists of uniform items. ScrollView renders all children; FlatList virtualizes off-screen items for performance.
+- The onScrollEnd callback fires after scrolling stops for 150ms. It is debounced, not instantaneous.
+
+=== SEE ALSO ===
+- Box
+- FlatList
+- Layout System

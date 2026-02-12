@@ -1,0 +1,145 @@
+=== METADATA ===
+title: Performance Tips
+description: Optimization strategies for iLoveReact applications
+category: Advanced
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: performance, optimization, flex tree, flatlist, virtualization, animated value, shallow
+related: layout-engine, painter, lua-runtime
+difficulty: advanced
+
+=== OVERVIEW ===
+iLoveReact runs a full layout pass on every frame where the tree is dirty. The layout
+engine, text measurement, and painter all have costs that scale with tree size and
+complexity. Most applications run comfortably at 60fps, but deeply nested trees, large
+text blocks, or unvirtualized long lists can cause frame drops.
+
+The key optimization principle is the same as in any flexbox system: keep the tree
+shallow, give the layout engine as much information as possible upfront, and avoid
+unnecessary re-computation.
+
+=== EXAMPLES ===
+Example 1: Keep Flex Trees Shallow
+---
+SLOW: Deep nesting forces the layout engine to resolve more constraints.
+
+  <Box>
+    <Box>
+      <Box>
+        <Box>
+          <Text style={{ fontSize: 14 }}>Deeply nested</Text>
+        </Box>
+      </Box>
+    </Box>
+  </Box>
+
+FAST: Flat structure with flexDirection row/column does the same layout
+in fewer nodes.
+
+  <Box style={{ flexDirection: 'row' }}>
+    <Text style={{ fontSize: 14 }}>Flat and fast</Text>
+  </Box>
+
+Each additional nesting level adds layout computation. Prefer
+flexDirection: 'row' on a single Box over nested column wrappers.
+---
+Platforms: All
+
+Example 2: Use FlatList for Long Lists
+---
+SLOW: Rendering 1000 items creates 1000 nodes in the tree.
+  All are laid out and painted every frame.
+
+  {items.map(item => (
+    <Box key={item.id} style={{ height: 40 }}>
+      <Text style={{ fontSize: 14 }}>{item.name}</Text>
+    </Box>
+  ))}
+
+FAST: FlatList virtualizes the list, only rendering visible items.
+
+  <FlatList
+    data={items}
+    itemHeight={40}
+    renderItem={({ item }) => (
+      <Box style={{ height: 40 }}>
+        <Text style={{ fontSize: 14 }}>{item.name}</Text>
+      </Box>
+    )}
+    keyExtractor={item => item.id}
+    style={{ width: '100%', height: '100%' }}
+  />
+
+FlatList creates nodes only for items visible in the scroll viewport,
+plus a buffer window. Items outside the viewport are recycled.
+---
+Platforms: All
+
+Example 3: Use AnimatedValue for Smooth Animations
+---
+SLOW: Animating via useState triggers React re-renders on every frame.
+  Each re-render produces mutation commands and a full layout pass.
+
+  const [opacity, setOpacity] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setOpacity(o => Math.min(o + 0.016, 1));
+    }, 16);
+    return () => clearInterval(interval);
+  }, []);
+
+FAST: AnimatedValue mutates the value without React re-renders.
+  The value is read directly by the listener.
+
+  const [anim, value] = useAnimation(0);
+  useEffect(() => {
+    anim.timing({ toValue: 1, duration: 1000 }).start();
+  }, []);
+
+  AnimatedValue bypasses the React reconciler entirely. The animation
+  runs in a frame callback and only triggers targeted state updates.
+---
+Platforms: All
+
+Example 4: Pre-Compute Grid Dimensions
+---
+SLOW: Relying on auto-sizing means the layout engine must measure
+  every child to determine the container size.
+
+  <Box>
+    {grid.map(row => (
+      <Box key={row.id} style={{ flexDirection: 'row' }}>
+        {row.cells.map(cell => (
+          <Text key={cell.id} style={{ fontSize: 12 }}>{cell.value}</Text>
+        ))}
+      </Box>
+    ))}
+  </Box>
+
+FAST: Pre-compute dimensions based on your data.
+
+  const cellWidth = 80;
+  const cellHeight = 24;
+  <Box style={{ width: columns * cellWidth, height: rows * cellHeight }}>
+    {/* ... */}
+  </Box>
+
+When the layout engine knows exact dimensions upfront, it skips
+measurement and auto-sizing, reducing computation significantly.
+---
+Platforms: All
+
+=== CRITICAL RULES ===
+- Keep flex trees shallow. Every nesting level costs layout time.
+- Use FlatList for any list longer than ~50 items.
+- Use AnimatedValue for animations. Do not animate via useState.
+- Pre-compute dimensions when you know them. Do not rely on child
+  content to infer container size.
+- Fill the viewport. Love2D is a fixed canvas, not a scrolling page.
+  Empty space below content is wasted if you do not set explicit sizes.
+- Avoid letterSpacing on large text blocks. Character-by-character
+  rendering is expensive.
+
+=== SEE ALSO ===
+- 02-architecture/layout-engine.txt - How layout computation works
+- 05-components/flatlist.txt - FlatList API
+- 12-api-reference/style-properties.txt - All style properties

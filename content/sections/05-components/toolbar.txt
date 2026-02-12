@@ -1,0 +1,99 @@
+=== METADATA ===
+title: Toolbar
+description: Horizontal toolbar with action items and dividers for grouping commands.
+category: Components
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: toolbar, actions, commands, buttons, divider, horizontal
+related: Pressable, Tabs, NavPanel
+difficulty: beginner
+
+=== OVERVIEW ===
+Toolbar renders a horizontal row of action items with optional dividers for visual
+grouping. Each item is a labeled pressable button. Dividers are thin vertical lines
+that separate logical groups.
+
+Items are provided as an array of ToolbarEntry objects — either { type: 'item' } with
+an id, label, and optional disabled flag, or { type: 'divider' } for visual separation.
+
+=== API / SYNTAX ===
+Import:
+  import { Toolbar } from '@ilovereact/core'
+
+Types:
+  type ToolbarEntry =
+    | { type: 'item'; id: string; label: string; disabled?: boolean }
+    | { type: 'divider' }
+
+  interface ToolbarProps {
+    items: ToolbarEntry[];
+    onSelect?: (id: string) => void;
+    style?: Style;
+  }
+
+Props:
+  items       ToolbarEntry[]         Required. Array of items and dividers.
+  onSelect    (id: string) => void   Called when an enabled item is pressed. Receives the item id.
+  style       Style                  Merged onto the root container.
+
+ToolbarEntry (item):
+  type        'item'                 Discriminant.
+  id          string                 Unique identifier passed to onSelect.
+  label       string                 Display text.
+  disabled    boolean                Optional. Greys out and disables press. Default false.
+
+ToolbarEntry (divider):
+  type        'divider'              Renders a vertical separator line.
+
+=== EXAMPLES ===
+Example 1: Basic toolbar
+---
+<Toolbar
+  items={[
+    { type: 'item', id: 'save', label: 'Save' },
+    { type: 'item', id: 'undo', label: 'Undo' },
+    { type: 'divider' },
+    { type: 'item', id: 'settings', label: 'Settings' },
+  ]}
+  onSelect={(id) => console.log('Selected:', id)}
+/>
+---
+Platforms: all
+
+Example 2: Toolbar with disabled items
+---
+<Toolbar
+  items={[
+    { type: 'item', id: 'cut', label: 'Cut', disabled: true },
+    { type: 'item', id: 'copy', label: 'Copy' },
+    { type: 'item', id: 'paste', label: 'Paste' },
+  ]}
+  onSelect={handleAction}
+/>
+---
+Platforms: all
+
+Example 3: Toolbar with custom styling
+---
+<Toolbar
+  items={[
+    { type: 'item', id: 'play', label: 'Play' },
+    { type: 'divider' },
+    { type: 'item', id: 'stop', label: 'Stop' },
+  ]}
+  onSelect={handleTransport}
+  style={{ backgroundColor: '#1a1a2e', borderRadius: 8, padding: 6 }}
+/>
+---
+Platforms: all
+
+=== PLATFORM NOTES ===
+Love2D:
+  Items render as Pressable elements with hover/press state styling.
+  Dividers render as thin Box elements with backgroundColor.
+Web:
+  Same rendering as Love2D — Pressable maps to interactive div elements.
+
+=== SEE ALSO ===
+- Tabs -- Tab navigation for switching views
+- NavPanel -- Sidebar navigation with grouped sections
+- Pressable -- Underlying interaction primitive

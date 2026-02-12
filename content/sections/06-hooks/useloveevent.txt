@@ -1,0 +1,112 @@
+=== METADATA ===
+title: useLoveEvent
+description: Fire-and-forget event listener for Love2D events without state tracking.
+category: Hooks
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: useLoveEvent, hook, event, listener, fire-and-forget, subscribe, handler, ref
+related: uselove.txt, uselovesend.txt
+difficulty: intermediate
+
+=== OVERVIEW ===
+useLoveEvent subscribes to events from the Lua runtime and calls a handler function when
+events arrive. Unlike useLove, it does not track state -- it is a fire-and-forget listener
+for side effects like logging, triggering animations, playing sounds, or updating external
+state.
+
+The hook uses a ref internally to store the handler function, which means the subscription
+does not re-register when the handler reference changes. This avoids unnecessary
+unsubscribe/resubscribe cycles when the handler is an inline function.
+
+=== API / SYNTAX ===
+Signature:
+  function useLoveEvent(eventType: string, handler: (payload: any) => void): void
+
+Parameters:
+  eventType: string
+    The event type to listen for. Must match the event type dispatched by the Lua side.
+
+  handler: (payload: any) => void
+    Callback invoked when an event of the given type is received. The handler receives
+    the event payload as its argument. Because the handler is stored in a ref, the
+    latest handler is always called, even if the component re-renders with a new function.
+
+Returns:
+  void (no return value)
+
+=== EXAMPLES ===
+Example 1: Log spawned entities
+---
+import { useLoveEvent } from '@ilovereact/core';
+
+function SpawnLogger() {
+  useLoveEvent('entity:spawned', (data) => {
+    console.log('Entity spawned:', data.type, 'at', data.x, data.y);
+  });
+
+  return null; // No UI -- just a listener
+}
+---
+Platforms: All
+
+Example 2: Trigger animation on event
+---
+import { useLoveEvent, useAnimation } from '@ilovereact/core';
+
+function DamageFlash() {
+  const [flashAnim, flashValue] = useAnimation(0);
+
+  useLoveEvent('player:damaged', (data) => {
+    flashAnim.setValue(1);
+    flashAnim.timing({ toValue: 0, duration: 500 }).start();
+  });
+
+  return (
+    <Box style={{
+      width: '100%',
+      height: '100%',
+      backgroundColor: `rgba(255, 0, 0, ${flashValue * 0.3})`,
+    }} />
+  );
+}
+---
+Platforms: All
+
+Example 3: Update external state
+---
+import { useState } from 'react';
+import { useLoveEvent } from '@ilovereact/core';
+
+function NotificationBanner() {
+  const [message, setMessage] = useState('');
+
+  useLoveEvent('notification', (data) => {
+    setMessage(data.text);
+    setTimeout(() => setMessage(''), 3000);
+  });
+
+  if (!message) return null;
+
+  return (
+    <Box style={{ width: '100%', padding: 12, backgroundColor: '#313244' }}>
+      <Text style={{ fontSize: 14, color: '#f9e2af' }}>{message}</Text>
+    </Box>
+  );
+}
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+Works identically on all platforms via the bridge abstraction. The handler ref pattern
+is particularly useful for handlers that close over component state, as it avoids stale
+closures without re-subscribing to the bridge.
+
+=== CRITICAL RULES ===
+- The handler is stored in a ref -- always calls the latest version, no re-subscription on change
+- The subscription is re-created only when eventType or the bridge instance changes
+- This hook does NOT return state -- if you need to track the latest event value, use useLove instead
+- Must be used inside a BridgeProvider context
+- The handler should be fast -- it runs synchronously when the event arrives
+
+=== SEE ALSO ===
+- uselove.txt -- Event subscription with state tracking
+- uselovesend.txt -- Send commands without subscribing to events

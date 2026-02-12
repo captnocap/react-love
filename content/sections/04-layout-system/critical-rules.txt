@@ -1,0 +1,153 @@
+=== METADATA ===
+title: Critical Layout Rules
+description: The most important layout rules in iLoveReact. Violating these causes the most common bugs.
+category: Layout
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: critical, rules, lint, root, fontSize, flexGrow, justifyContent, width, text, block char, mixed children, viewport
+related: flexbox.txt, sizing.txt, text-styling.txt
+difficulty: beginner
+
+=== OVERVIEW ===
+These are the rules that cause the most bugs in iLoveReact development. The static linter
+(ilovereact lint) enforces most of them at build time, blocking builds that violate error-level
+rules. Understanding these rules is essential for productive development. Each rule exists
+because of a concrete limitation of the layout engine or rendering pipeline.
+
+The linter runs automatically during `ilovereact build` (lint gate). You should also run
+`ilovereact lint` after every component change to catch issues early. Rules can be bypassed
+on a per-line basis with the `// ilr-ignore-next-line` comment, but this should be rare.
+
+=== API / SYNTAX ===
+Linter escape hatch:
+
+  // ilr-ignore-next-line
+  <Text style={{ color: '#cdd6f4' }}>Intentionally no fontSize</Text>
+
+This suppresses all linter rules for the next line. Use sparingly.
+
+=== EXAMPLES ===
+Example 1: WRONG -- root uses flexGrow (linter error: no-flexgrow-root)
+---
+// This will NOT fill the viewport. flexGrow on the root has no parent to grow into.
+function App() {
+  return (
+    <Box style={{ flexGrow: 1, backgroundColor: '#1e1e2e' }}>
+      <Text style={{ fontSize: 20, color: '#cdd6f4' }}>Invisible</Text>
+    </Box>
+  );
+}
+---
+Platforms: All
+
+Example 2: RIGHT -- root uses explicit dimensions
+---
+function App() {
+  return (
+    <Box style={{ width: '100%', height: '100%', backgroundColor: '#1e1e2e' }}>
+      <Text style={{ fontSize: 20, color: '#cdd6f4' }}>Visible</Text>
+    </Box>
+  );
+}
+---
+Platforms: All
+
+Example 3: WRONG -- Text without fontSize (linter error: no-text-without-fontsize)
+---
+<Text style={{ color: '#cdd6f4' }}>This text cannot be measured</Text>
+---
+Platforms: All
+
+Example 4: WRONG -- mixed text children (linter error: no-mixed-text-children)
+---
+// Creates multiple __TEXT__ nodes that overlap in layout
+<Text style={{ fontSize: 14, color: '#cdd6f4' }}>
+  Score: {score}
+</Text>
+---
+Platforms: All
+
+Example 5: RIGHT -- template literal instead of mixed children
+---
+<Text style={{ fontSize: 14, color: '#cdd6f4' }}>
+  {`Score: ${score}`}
+</Text>
+---
+Platforms: All
+
+Example 6: WRONG -- row justifyContent without width (linter error: no-row-justify-without-width)
+---
+<Box style={{ flexDirection: 'row', justifyContent: 'center' }}>
+  <Text style={{ fontSize: 14, color: '#cdd6f4' }}>Not centered</Text>
+</Box>
+---
+Platforms: All
+
+Example 7: RIGHT -- row justifyContent with explicit width
+---
+<Box style={{ flexDirection: 'row', width: '100%', justifyContent: 'center' }}>
+  <Text style={{ fontSize: 14, color: '#cdd6f4' }}>Centered</Text>
+</Box>
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+These rules apply to all platforms. The layout engine on each target (Lua for Love2D,
+CSS Flexbox for web, grid engine for terminals) shares the same fundamental constraints.
+The linter catches issues at the source level before code reaches any target renderer.
+
+=== CRITICAL RULES ===
+1. Root containers MUST have width: '100%', height: '100%' -- NOT flexGrow: 1
+   Why: flexGrow on the root has no parent container to grow into. The root element IS the
+   outermost container. Without explicit dimensions, it has zero size.
+   Linter: no-flexgrow-root (error)
+
+2. Every Text element MUST have explicit fontSize
+   Why: The layout engine measures text using the font at the specified size. Without fontSize,
+   text measurement fails and the layout is incorrect. There is no default fontSize.
+   Linter: no-text-without-fontsize (error)
+
+3. No flexGrow without sibling sizing context
+   Why: flexGrow distributes remaining space among children. If no sibling has an explicit
+   main-axis size, the "remaining space" is undefined and layout becomes content-dependent
+   (unreliable). At least one sibling needs a fixed size to anchor the flex calculation.
+   Linter: no-uncontexted-flexgrow (warning)
+
+4. Row Boxes with justifyContent MUST have explicit width
+   Why: Box nodes have no intrinsic width (only Text nodes do). A row Box without width has
+   zero available space, so justifyContent has nothing to distribute. Always add width: '100%'
+   or a fixed width to row Boxes that use justifyContent (except 'start', which is the default).
+   Linter: no-row-justify-without-width (error)
+
+5. Pre-compute grid dimensions
+   Why: Do not rely on child content to infer container size. The layout engine works top-down
+   from parent to child. If a parent has no explicit size, its children's flex properties have
+   no context to compute against.
+
+6. Keep flex trees shallow
+   Why: Deep nesting of flex containers without explicit dimensions causes cascading layout
+   ambiguity. Each level of nesting without explicit sizing adds uncertainty. Prefer explicit
+   dimensions or flat layouts.
+   Linter: no-deep-flex-nesting (warning, triggers at depth 4+)
+
+7. Fill the viewport
+   Why: Love2D renders to a fixed canvas with a known resolution (set in conf.lua). Unlike
+   a web browser, there is no scrolling viewport. Your app must fill the canvas or unused
+   areas will show the background color.
+
+8. No mixed text and expressions in Text -- use template literals
+   Why: <Text>Score: {score}</Text> creates two separate __TEXT__ nodes ("Score: " and the
+   value of score). The layout engine lays these out as separate flex items at y=0, causing
+   them to overlap. Using {`Score: ${score}`} produces a single __TEXT__ node.
+   Linter: no-mixed-text-children (error)
+
+9. Use block char as grid blueprint, never in Text
+   Why: The block character (U+2588) renders as a font glyph in Text, not a filled pixel.
+   It has gaps between characters and does not produce solid fills. Convert block-char art
+   into a boolean grid and render each cell as a Box with backgroundColor.
+   Linter: no-block-char-in-text (error)
+
+=== SEE ALSO ===
+- flexbox.txt -- Flexbox layout model
+- sizing.txt -- Width, height, and sizing rules
+- text-styling.txt -- Text property requirements
+- ../03-cli-reference/lint.txt -- Linter command reference

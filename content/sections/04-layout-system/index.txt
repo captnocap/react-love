@@ -1,0 +1,92 @@
+=== METADATA ===
+title: Layout System
+description: Overview of the iLoveReact layout system, based on Flexbox with fixed-canvas semantics.
+category: Layout
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: layout, flexbox, sizing, spacing, visual, text, transforms, critical rules
+related: flexbox.txt, sizing.txt, spacing.txt, visual.txt, text-styling.txt, transforms.txt, critical-rules.txt
+difficulty: beginner
+
+=== OVERVIEW ===
+iLoveReact uses a Flexbox layout model for all targets, similar to React Native. Every Box
+is a flex container by default, with flexDirection defaulting to 'column'. There are no
+block, inline, or grid display modes -- everything is flex. The layout engine runs on the
+Lua side (layout.lua), computing absolute positions and sizes from the style tree that
+React produces.
+
+Because Love2D renders to a fixed canvas (not a scrolling web page), the layout system
+demands explicit sizing at the root level and encourages explicit dimensions throughout.
+The static linter (ilovereact lint) enforces critical layout rules at build time, catching
+the most common mistakes before they reach the renderer. Understanding these rules is
+essential for productive development with iLoveReact.
+
+=== API / SYNTAX ===
+The layout system is configured entirely through the `style` prop on Box, Text, and Image
+primitives. All style properties are defined in the Style interface (packages/shared/src/types.ts).
+
+Layout-related style categories:
+  - Flexbox: flexDirection, justifyContent, alignItems, alignSelf, flexGrow, flexShrink, flexBasis, flexWrap, gap
+  - Sizing: width, height, minWidth, minHeight, maxWidth, maxHeight, aspectRatio
+  - Spacing: padding, paddingLeft/Right/Top/Bottom, margin, marginLeft/Right/Top/Bottom, gap
+  - Visual: backgroundColor, borderRadius, borderWidth, borderColor, opacity, overflow, zIndex, shadows, gradients
+  - Text: color, fontSize, fontFamily, fontWeight, textAlign, textOverflow, lineHeight, letterSpacing
+  - Transforms: transform object with translateX/Y, rotate, scaleX/Y, skewX/Y, originX/Y
+
+=== EXAMPLES ===
+Example 1: Full-viewport root container
+---
+import { Box, Text } from '@ilovereact/core';
+
+function App() {
+  return (
+    <Box style={{ width: '100%', height: '100%', backgroundColor: '#1e1e2e' }}>
+      <Text style={{ fontSize: 24, color: '#cdd6f4' }}>Hello, iLoveReact</Text>
+    </Box>
+  );
+}
+---
+Platforms: All
+
+Example 2: Row layout with centered content
+---
+<Box style={{
+  flexDirection: 'row',
+  width: '100%',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: 16,
+}}>
+  <Text style={{ fontSize: 18, color: '#cdd6f4' }}>Left</Text>
+  <Text style={{ fontSize: 18, color: '#cdd6f4' }}>Right</Text>
+</Box>
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+Love2D: Fixed canvas. Root must fill the viewport with width/height '100%'. The Lua layout
+engine (layout.lua) computes all positions. Text measurement happens via Love2D's font
+system.
+
+Web: Maps to CSS Flexbox via the styleToCSS conversion in primitives.tsx. Values like
+'start' and 'end' are converted to 'flex-start' and 'flex-end' automatically.
+
+Grid targets (terminal, cc, nvim, hs, awesome): Use character-cell units. Layout engine
+operates on grid dimensions rather than pixel dimensions.
+
+=== CRITICAL RULES ===
+- Root containers MUST have width: '100%', height: '100%' -- NOT flexGrow: 1
+- Every Text MUST have explicit fontSize -- the linter enforces this
+- Row Boxes with justifyContent MUST have explicit width
+- No flexGrow without sibling sizing context
+- Keep flex trees shallow -- prefer explicit dimensions over deep nesting
+- Fill the viewport -- Love2D is a fixed canvas, not a scrolling page
+- See critical-rules.txt for the complete list
+
+=== SEE ALSO ===
+- flexbox.txt -- Flexbox layout model details
+- sizing.txt -- Width, height, min/max sizing
+- spacing.txt -- Padding, margin, gap
+- visual.txt -- Visual styling (backgrounds, borders, shadows)
+- text-styling.txt -- Text-specific style properties
+- transforms.txt -- Transform system
+- critical-rules.txt -- All critical layout rules with explanations

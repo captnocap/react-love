@@ -1,0 +1,87 @@
+=== METADATA ===
+title: Rendering Pipeline
+description: End-to-end walkthrough of how React components become pixels on screen
+category: Architecture
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: pipeline, rendering, reconciler, mutations, transport, layout, painter, frame loop
+related: reconciler, layout-engine, transport, painter
+difficulty: intermediate
+
+=== OVERVIEW ===
+Every frame in iLoveReact follows a fixed rendering pipeline. Your React components
+produce a virtual tree. The reconciler diffs that tree against the previous version and
+emits mutation commands (create, update, remove, reorder). Those commands travel over a
+transport layer to the target runtime. The layout engine computes positions and sizes
+for every node. Finally, the painter draws the result to the screen.
+
+This pipeline is the same for every target. Only the transport and painter differ.
+The reconciler and layout engine are shared code.
+
+=== EXAMPLES ===
+Example 1: Pipeline Stages
+---
+Stage 1: React Reconciler (@ilovereact/native)
+  Input:  Your JSX component tree
+  Output: Mutation commands (JSON)
+  What:   react-reconciler 0.29 diffs the virtual tree.
+          Host elements are 'View', 'Text', 'Image'.
+          Commands: createNode, updateProps, appendChild, removeChild,
+                    insertBefore, commitTextUpdate.
+
+Stage 2: Mutation Commands
+  Format: Array of JSON objects, each with a `type` field:
+          { type: "createNode", nodeType: "View", id: 1, props: { style: {...} } }
+          { type: "updateProps", id: 1, props: { style: {...} } }
+          { type: "appendChild", parentId: 0, childId: 1 }
+          { type: "removeChild", parentId: 0, childId: 1 }
+
+Stage 3: Transport Layer
+  Love2D native: QuickJS FFI (bridge_quickjs.lua) -- JS runs inside QuickJS embedded in Love2D
+  Love2D web:    Module.FS (bridge_fs.lua) -- commands written to shared Emscripten filesystem
+  Grid targets:  WebSocket or stdio -- commands sent over network or pipes
+
+Stage 4: Layout Engine (layout.lua)
+  Input:  Retained node tree with style properties
+  Output: Computed rect {x, y, w, h} for every node
+  What:   Flexbox algorithm: resolves units (px, %, vw, vh),
+          distributes flex-grow/shrink, measures text, applies
+          justifyContent, alignItems, padding, margin, gap.
+
+Stage 5: Target Painter
+  Love2D:  love.graphics calls -- rectangles, text, images, stencils, scissors
+  Web:     CSS flexbox in DOM -- styleToCSS conversion, div/span/img elements
+  Terminal: ANSI truecolor escape sequences to stdout
+  CC:      ComputerCraft term API with 16-color palette
+  Neovim:  nvim floating window API
+  HS:      hs.canvas pixel drawing
+  Awesome: Cairo/Pango rendering
+---
+Platforms: All
+
+Example 2: Native Mode Frame Loop
+---
+On every love.update(dt):
+
+  1. bridge:tick()                    -- Advance JS timers and microtasks
+  2. bridge:callGlobal("_poll...")    -- JS processes pending input events
+  3. bridge:tick()                    -- Event handlers may trigger state updates
+  4. bridge:drainCommands()           -- Collect mutation commands from JS
+  5. tree.applyCommands(commands)     -- Apply to retained Lua tree
+  6. animate.tick(dt)                 -- Advance Lua-side transitions/animations
+  7. if tree.isDirty() then
+       layout.layout(root)           -- Recompute layout
+     end
+
+On every love.draw():
+  8. painter.paint(root)              -- Walk tree, issue draw calls
+  9. inspector.draw(root)             -- Debug overlay (if F12 enabled)
+  10. errors.draw()                   -- Error overlay (if any errors)
+---
+Platforms: love2d
+
+=== SEE ALSO ===
+- reconciler.txt - React reconciler details
+- layout-engine.txt - Flexbox layout algorithm
+- transport.txt - Transport implementations
+- painter.txt - Target painters
+- 10-advanced/lua-runtime.txt - All Lua modules

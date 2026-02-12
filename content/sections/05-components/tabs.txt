@@ -1,0 +1,124 @@
+=== METADATA ===
+title: Tabs
+description: Tab navigation bar with underline and pill variants for switching between views.
+category: Components
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: tabs, tab bar, navigation, switch, underline, pill, views
+related: NavPanel, Breadcrumbs
+difficulty: beginner
+
+=== OVERVIEW ===
+Tabs renders a horizontal tab bar for switching between views. Each tab is defined by an `id` and `label`. The currently active tab is visually distinguished by color, font weight, and variant-specific styling (an underline border or a filled pill background).
+
+Tabs supports two visual variants: `'underline'` (default) draws a colored bottom border on the active tab, while `'pill'` wraps the active tab in a filled rounded rectangle. Both variants use Pressable for hover feedback.
+
+=== API / SYNTAX ===
+Import: import { Tabs } from '@ilovereact/core';
+
+Tab type:
+```ts
+interface Tab {
+  id: string;
+  label: string;
+}
+```
+
+Usage:
+```tsx
+<Tabs
+  tabs={[
+    { id: 'overview', label: 'Overview' },
+    { id: 'details', label: 'Details' },
+    { id: 'settings', label: 'Settings' },
+  ]}
+  activeId={currentTab}
+  onSelect={setCurrentTab}
+/>
+```
+
+Props:
+
+| Prop     | Type                       | Default      | Description                           |
+|----------|----------------------------|--------------|---------------------------------------|
+| tabs     | Tab[]                      | (required)   | Array of tab definitions              |
+| activeId | string                     | (required)   | ID of the currently active tab        |
+| onSelect | (id: string) => void       | -            | Called when a tab is clicked          |
+| variant  | 'underline' \| 'pill'      | 'underline'  | Visual style variant                  |
+| style    | Style                      | -            | Container style overrides             |
+
+=== EXAMPLES ===
+Example 1: Underline tabs (default)
+---
+```tsx
+const [tab, setTab] = useState('overview');
+
+<Tabs
+  tabs={[
+    { id: 'overview', label: 'Overview' },
+    { id: 'metrics', label: 'Metrics' },
+    { id: 'logs', label: 'Logs' },
+  ]}
+  activeId={tab}
+  onSelect={setTab}
+/>
+```
+---
+Platforms: All
+
+Example 2: Pill variant
+---
+```tsx
+<Tabs
+  tabs={[
+    { id: 'all', label: 'All' },
+    { id: 'active', label: 'Active' },
+    { id: 'archived', label: 'Archived' },
+  ]}
+  activeId="all"
+  onSelect={handleTabChange}
+  variant="pill"
+/>
+```
+---
+Platforms: All
+
+Example 3: Tabs controlling content
+---
+```tsx
+const [activeTab, setActiveTab] = useState('code');
+
+<Box style={{ width: '100%' }}>
+  <Tabs
+    tabs={[
+      { id: 'code', label: 'Code' },
+      { id: 'preview', label: 'Preview' },
+    ]}
+    activeId={activeTab}
+    onSelect={setActiveTab}
+  />
+  <Box style={{ padding: 12, flexGrow: 1 }}>
+    {activeTab === 'code' ? <CodeEditor /> : <PreviewPanel />}
+  </Box>
+</Box>
+```
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+- Tabs uses Pressable for each tab, providing hover feedback on all targets.
+- Underline variant: container has `flexDirection: 'row'`, `width: '100%'`, `borderBottomWidth: 1`, `borderColor: '#1e293b'`. Active tab has a 2px bottom border in `#3b82f6`. Hovered inactive tabs show a `#475569` bottom border.
+- Pill variant: container has `flexDirection: 'row'`, `width: '100%'`, `gap: 4`, `backgroundColor: '#0f172a'`, `borderRadius: 8`, `padding: 4`. Active tab has `backgroundColor: '#334155'`, `borderRadius: 6`. Hovered inactive tabs show `backgroundColor: '#1e293b'`.
+- Active tab text: `color: '#e2e8f0'`, `fontWeight: 'bold'`, `fontSize: 11`.
+- Inactive tab text: `color: '#64748b'`, `fontWeight: 'normal'`, `fontSize: 11`.
+- Tab padding is `paddingLeft: 12`, `paddingRight: 12`, `paddingTop: 8` (underline) or `6` (pill), `paddingBottom: 8` (underline) or `6` (pill).
+
+=== CRITICAL RULES ===
+- Both `tabs` and `activeId` are required. The `activeId` must match one of the tab `id` values for the active styling to appear.
+- Tabs does NOT render tab content. It only renders the tab bar. You are responsible for conditionally rendering the content below the Tabs component based on `activeId`.
+- The tab bar uses `width: '100%'` by default. Ensure the parent container has a known width.
+- Tabs is a controlled component. It does not manage its own active state. The parent must update `activeId` in response to `onSelect`.
+
+=== SEE ALSO ===
+- NavPanel
+- Breadcrumbs
+- Pressable

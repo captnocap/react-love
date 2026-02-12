@@ -1,0 +1,153 @@
+=== METADATA ===
+title: Box
+description: Fundamental flexbox layout container for all visual structure
+category: Components
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: box, container, layout, flexbox, div, view, flex, row, column
+related: Text, Image, FlexRow, FlexColumn, Pressable
+difficulty: beginner
+
+=== OVERVIEW ===
+Box is the fundamental layout primitive in iLoveReact. Every visual structure is built from nested Box elements. It renders as a flexbox container with configurable direction, alignment, spacing, and visual styling. In web mode it outputs a `<div>` with CSS flexbox; in native mode it outputs a `'View'` host element processed by the Lua layout engine.
+
+Box also serves as the primary event target. It accepts handlers for pointer, keyboard, touch, gamepad, and drag interactions. For higher-level interaction patterns (press state tracking, long press, hover callbacks), use Pressable instead, which wraps Box internally.
+
+=== API / SYNTAX ===
+```tsx
+import { Box } from '@ilovereact/core';
+```
+
+```tsx
+<Box
+  style={{ width: '100%', height: '100%', flexDirection: 'column', backgroundColor: '#1e1e2e' }}
+  hoverStyle={{ backgroundColor: '#313244' }}
+  activeStyle={{ backgroundColor: '#45475a' }}
+  onClick={(event) => { /* handle click */ }}
+>
+  {children}
+</Box>
+```
+
+Props:
+| Prop            | Type                            | Default   | Description                          |
+|-----------------|---------------------------------|-----------|--------------------------------------|
+| style           | Style                           | undefined | Flexbox layout and visual styling    |
+| hoverStyle      | Style                           | undefined | Style merged on pointer hover        |
+| activeStyle     | Style                           | undefined | Style merged on press/active         |
+| onClick         | (event: LoveEvent) => void      | undefined | Click/press handler                  |
+| onRelease       | (event: LoveEvent) => void      | undefined | Release handler                      |
+| onPointerEnter  | (event: LoveEvent) => void      | undefined | Pointer enters the box               |
+| onPointerLeave  | (event: LoveEvent) => void      | undefined | Pointer leaves the box               |
+| onKeyDown       | (event: LoveEvent) => void      | undefined | Key pressed while focused            |
+| onKeyUp         | (event: LoveEvent) => void      | undefined | Key released while focused           |
+| onTextInput     | (event: LoveEvent) => void      | undefined | Text input while focused             |
+| onWheel         | (event: LoveEvent) => void      | undefined | Mouse wheel / scroll wheel           |
+| onTouchStart    | (event: LoveEvent) => void      | undefined | Touch began                          |
+| onTouchEnd      | (event: LoveEvent) => void      | undefined | Touch ended                          |
+| onTouchMove     | (event: LoveEvent) => void      | undefined | Touch moved                          |
+| onGamepadPress  | (event: LoveEvent) => void      | undefined | Gamepad button pressed               |
+| onGamepadRelease| (event: LoveEvent) => void      | undefined | Gamepad button released              |
+| onGamepadAxis   | (event: LoveEvent) => void      | undefined | Gamepad axis moved                   |
+| onDragStart     | (event: LoveEvent) => void      | undefined | Drag gesture began                   |
+| onDrag          | (event: LoveEvent) => void      | undefined | Drag gesture moved                   |
+| onDragEnd       | (event: LoveEvent) => void      | undefined | Drag gesture ended                   |
+| children        | ReactNode                       | undefined | Child elements                       |
+
+The `style` prop accepts the full Style type, which includes flexbox properties (flexDirection, justifyContent, alignItems, flexGrow, flexShrink, flexBasis, flexWrap, gap), sizing (width, height, minWidth, minHeight, maxWidth, maxHeight, aspectRatio), spacing (padding*, margin*), visual (backgroundColor, borderRadius, borderWidth, borderColor, opacity, overflow, boxShadow), positioning (position, top/right/bottom/left, zIndex), gradients, transforms, transitions, and animations.
+
+Default flexDirection is 'column'. Default display is 'flex'.
+
+=== EXAMPLES ===
+Example 1: Root container filling the viewport
+---
+```tsx
+<Box style={{ width: '100%', height: '100%', backgroundColor: '#1e1e2e' }}>
+  <Text style={{ fontSize: 24, color: '#cdd6f4' }}>Hello</Text>
+</Box>
+```
+---
+Platforms: All
+
+Example 2: Horizontal row with centered, spaced children
+---
+```tsx
+<Box style={{
+  width: '100%',
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: 16,
+}}>
+  <Text style={{ fontSize: 14, color: '#cdd6f4' }}>Left</Text>
+  <Text style={{ fontSize: 14, color: '#cdd6f4' }}>Right</Text>
+</Box>
+```
+---
+Platforms: All
+
+Example 3: Interactive box with hover and active states
+---
+```tsx
+<Box
+  style={{ padding: 12, backgroundColor: '#313244', borderRadius: 8 }}
+  hoverStyle={{ backgroundColor: '#45475a' }}
+  activeStyle={{ backgroundColor: '#585b70' }}
+  onClick={() => console.log('clicked')}
+>
+  <Text style={{ fontSize: 14, color: '#cdd6f4' }}>Click me</Text>
+</Box>
+```
+---
+Platforms: Love2D, Web
+
+Example 4: Drag-enabled box
+---
+```tsx
+const [pos, setPos] = useState({ x: 100, y: 100 });
+
+<Box
+  style={{
+    position: 'absolute',
+    left: pos.x,
+    top: pos.y,
+    width: 80,
+    height: 80,
+    backgroundColor: '#89b4fa',
+    borderRadius: 8,
+  }}
+  onDragStart={() => {}}
+  onDrag={(e) => setPos({ x: pos.x + (e.dx ?? 0), y: pos.y + (e.dy ?? 0) })}
+  onDragEnd={() => {}}
+>
+  <Text style={{ fontSize: 12, color: '#1e1e2e' }}>Drag me</Text>
+</Box>
+```
+---
+Platforms: Love2D, Web
+
+=== PLATFORM NOTES ===
+Love2D:
+  Renders as a 'View' host element. Layout computed by layout.lua (yoga-like flexbox). Visual rendering by painter.lua. Supports all style properties including gradients, transforms, box shadows, and per-corner border radii. The Lua painter handles hover/active style merging on the native side for smooth interaction without JS round-trips.
+
+Web:
+  Renders as a <div> with CSS flexbox. Style is converted via styleToCSS(). The web renderer uses React state for hover/active style merging. Drag handlers use pointer capture for reliable cross-element dragging. Keyboard handlers automatically set tabIndex=0 for focus.
+
+Terminal:
+  Grid targets use <view> lowercase intrinsic, not the Box component. Layout is handled by @ilovereact/grid.
+
+=== CRITICAL RULES ===
+- Root containers MUST have width: '100%' and height: '100%'. Using flexGrow: 1 on the root will produce a zero-height container because there is no parent with a known size to grow into.
+- Row-direction Boxes (flexDirection: 'row') MUST have an explicit width for justifyContent to work. Box nodes have no intrinsic width (only Text nodes do), so without a width the container collapses and justifyContent has nothing to distribute.
+- Do not use flexGrow without sibling sizing context. flexGrow only works when the parent has a known size and there are siblings that establish the remaining space.
+- Default flexDirection is 'column'. If you expect horizontal layout, set flexDirection: 'row' explicitly.
+- Keep flex trees shallow. Prefer a single Box with flexDirection: 'row' over multiple nested wrapper Boxes. Deep hierarchies slow down layout computation.
+- Love2D is a fixed canvas, not a scrolling page. Fill the viewport; do not leave empty space expecting it to scroll.
+
+=== SEE ALSO ===
+- Text
+- Image
+- Pressable
+- FlexRow
+- FlexColumn
+- Style type reference
+- Layout System

@@ -1,0 +1,95 @@
+=== METADATA ===
+title: useLoveReady
+description: Detect when the Love2D bridge is initialized and ready for communication.
+category: Hooks
+platforms: love2d, web, terminal, cc, nvim, hs, awesome
+keywords: useLoveReady, hook, ready, initialized, bridge, connection, loading
+related: uselove.txt, uselovesend.txt
+difficulty: beginner
+
+=== OVERVIEW ===
+useLoveReady returns a boolean indicating whether the Love2D bridge is initialized and
+ready for communication. This is useful for showing loading states or deferring operations
+that depend on the bridge being available.
+
+The hook checks the bridge's isReady() method on initial render. If the bridge is not yet
+ready, it registers an onReady callback that flips the state to true once initialization
+completes.
+
+=== API / SYNTAX ===
+Signature:
+  function useLoveReady(): boolean
+
+Parameters:
+  (none)
+
+Returns:
+  boolean
+    true when the bridge is initialized and ready for communication.
+    false while the bridge is still initializing.
+
+=== EXAMPLES ===
+Example 1: Loading screen
+---
+import { useLoveReady } from '@ilovereact/core';
+
+function App() {
+  const ready = useLoveReady();
+
+  if (!ready) {
+    return (
+      <Box style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ fontSize: 24, color: '#a6adc8' }}>Loading...</Text>
+      </Box>
+    );
+  }
+
+  return (
+    <Box style={{ width: '100%', height: '100%' }}>
+      <Text style={{ fontSize: 20, color: '#cdd6f4' }}>Ready!</Text>
+    </Box>
+  );
+}
+---
+Platforms: All
+
+Example 2: Defer data fetching until ready
+---
+import { useEffect } from 'react';
+import { useLoveReady, useLoveRPC } from '@ilovereact/core';
+
+function DataLoader() {
+  const ready = useLoveReady();
+  const loadData = useLoveRPC('loadInitialData');
+
+  useEffect(() => {
+    if (ready) {
+      loadData().then((data) => console.log('Data loaded:', data));
+    }
+  }, [ready, loadData]);
+
+  return null;
+}
+---
+Platforms: All
+
+=== PLATFORM NOTES ===
+The readiness condition depends on the target:
+- Love2D: Ready when the QuickJS FFI bridge has established communication with the Lua runtime.
+- Web: Ready when the Module.FS bridge has initialized its event queue.
+- Grid targets: Ready when the IPC/WebSocket connection is established.
+
+In most cases, the bridge becomes ready very quickly (within the first frame). The loading
+state is most visible when the bridge requires asynchronous initialization (e.g., WebSocket
+connection).
+
+=== CRITICAL RULES ===
+- The hook returns false synchronously on first render if the bridge is still initializing
+- Once ready becomes true, it never reverts to false
+- Must be used inside a BridgeProvider context
+- Do not send commands or subscribe to events before the bridge is ready -- use this hook to gate those operations
+
+=== SEE ALSO ===
+- uselove.txt -- Event subscription (works only after ready)
+- useloverpc.txt -- RPC calls (works only after ready)
+- uselovesend.txt -- Send commands (works only after ready)
