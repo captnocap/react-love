@@ -202,6 +202,9 @@ cli-setup: setup
 	cp $(QUICKJS_DIR)/libquickjs.so cli/runtime/lib/
 	cp -r packages/shared cli/runtime/ilovereact/shared
 	cp -r packages/native cli/runtime/ilovereact/native
+	cp -r packages/router cli/runtime/ilovereact/router
+	cp -r packages/storage cli/runtime/ilovereact/storage
+	cp -r packages/components cli/runtime/ilovereact/components
 	@echo "=== CLI runtime ready. Run: cd cli && npm link ==="
 
 # ── Clean ───────────────────────────────────────────────

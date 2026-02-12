@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Text, Pressable } from '../ilovereact/shared/src';
+import { Box, Text, Pressable } from '@ilovereact/core';
 
 // ── Layout rule reminder ─────────────────────────────────────
 // Each rule below maps to a lint guard in `ilovereact lint`.

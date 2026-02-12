@@ -8,6 +8,27 @@ import { updateCommand } from './update.mjs';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_ROOT = join(__dirname, '..');
 
+// ── Helper: auto-detect esbuild --alias flags from ilovereact/ ──
+
+const ALIAS_MAP = {
+  shared: '@ilovereact/core',
+  native: '@ilovereact/native',
+  router: '@ilovereact/router',
+  storage: '@ilovereact/storage',
+  components: '@ilovereact/components',
+};
+
+function getEsbuildAliases(cwd) {
+  const flags = [];
+  for (const [dir, alias] of Object.entries(ALIAS_MAP)) {
+    const pkg = join(cwd, 'ilovereact', dir, 'src');
+    if (existsSync(pkg)) {
+      flags.push(`--alias:${alias}=./ilovereact/${dir}/src`);
+    }
+  }
+  return flags;
+}
+
 export async function buildCommand(args) {
   const cwd = process.cwd();
   const projectName = basename(cwd);
@@ -93,6 +114,7 @@ async function buildBundle(cwd, projectName) {
     '--target=es2020',
     '--jsx=automatic',
     '--outfile=bundle.js',
+    ...getEsbuildAliases(cwd),
     entry,
   ].join(' '), { cwd, stdio: 'inherit' });
 
@@ -132,6 +154,7 @@ async function buildDistLove(cwd, projectName, opts = {}) {
     '--target=es2020',
     '--jsx=automatic',
     `--outfile=${bundlePath}`,
+    ...getEsbuildAliases(cwd),
     entry,
   ].join(' '), { cwd, stdio: 'pipe' });
 
@@ -303,6 +326,7 @@ async function buildDistTerminal(cwd, projectName) {
     '--jsx=automatic',
     '--external:ws',
     `--outfile=${tmpFile}`,
+    ...getEsbuildAliases(cwd),
     entry,
   ].join(' '), { cwd, stdio: 'pipe' });
 

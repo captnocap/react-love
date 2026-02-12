@@ -14,7 +14,9 @@ const HELP = `
   ilovereact - CLI for iLoveReact
 
   Usage:
-    ilovereact init <name>           Create a new iLoveReact project
+    ilovereact init <name>           Create a new project (interactive)
+    ilovereact init <name> --all     Include all optional packages
+    ilovereact init <name> --minimal Core only, no optional packages
     ilovereact dev                    Run esbuild in watch mode (HMR)
     ilovereact build [--no-update]    Bundle JS for dev (love . workflow)
     ilovereact build dist:love [--no-update] [--debug]
