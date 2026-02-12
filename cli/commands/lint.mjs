@@ -13,6 +13,8 @@
  *   no-deep-flex-nesting        (warning) 3+ flex container levels without explicit dimensions
  *   no-flexrow-flexcolumn       (warning) Prefer Box with flexDirection
  *   no-implicit-container-sizing (warning) >5 children without explicit container size
+ *   no-link-without-to          (error)   <Link> missing "to" prop
+ *   no-routes-without-fallback  (warning) <Routes> without path="*" catch-all
  */
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
@@ -23,6 +25,7 @@ import { createRequire } from 'node:module';
 
 const CONTAINER_TAGS = new Set(['Box', 'view', 'FlexRow', 'FlexColumn']);
 const TEXT_TAGS = new Set(['Text']); // Only uppercase — grid targets use <text> which doesn't need fontSize
+const ROUTER_TAGS = new Set(['Link', 'Route', 'Routes']);
 
 // ── Color helpers ────────────────────────────────────────────
 
@@ -131,6 +134,52 @@ function extractFromObjectLiteral(objLit, ts) {
   return info;
 }
 
+// ── JSX attribute extraction (for router lint rules) ─────────
+
+/**
+ * Extract JSX attribute names and their string literal values from an element.
+ * Returns a Map<string, string | true> where:
+ *   - string value: attribute has a string literal value
+ *   - true: attribute exists but has a non-string or no value
+ */
+function extractJsxAttrs(element, ts) {
+  const attrs = element.attributes;
+  if (!attrs) return new Map();
+
+  const result = new Map();
+  for (const attr of attrs.properties) {
+    if (!ts.isJsxAttribute(attr)) continue;
+    if (!attr.name) continue;
+    const name = attr.name.text;
+
+    if (!attr.initializer) {
+      // Boolean attribute: <Link replace />
+      result.set(name, true);
+      continue;
+    }
+
+    // String literal: <Route path="/foo" />
+    if (ts.isStringLiteral(attr.initializer)) {
+      result.set(name, attr.initializer.text);
+      continue;
+    }
+
+    // JSX expression: <Link to={...} />
+    if (ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
+      if (ts.isStringLiteral(attr.initializer.expression)) {
+        result.set(name, attr.initializer.expression.text);
+      } else {
+        result.set(name, true); // non-string expression, but attribute exists
+      }
+      continue;
+    }
+
+    result.set(name, true);
+  }
+
+  return result;
+}
+
 // ── AST walking — build JsxContext tree ──────────────────────
 
 function getTagName(element, ts) {
@@ -174,7 +223,13 @@ function buildContexts(sourceFile, filePath, ts) {
         col: pos.character + 1,
         flexDepth,
         ignored: isIgnored(line),
+        _attrs: null,
       };
+
+      // Extract JSX attributes for router components (Link, Route, etc.)
+      if (ROUTER_TAGS.has(tagName)) {
+        ctx._attrs = extractJsxAttrs(opening, ts);
+      }
 
       // Extract text content for Text elements so rules can inspect it
       if (TEXT_TAGS.has(tagName)) {
@@ -262,7 +317,13 @@ function buildContexts(sourceFile, filePath, ts) {
         col: pos.character + 1,
         flexDepth,
         ignored: isIgnored(line),
+        _attrs: null,
       };
+
+      // Extract JSX attributes for router components
+      if (ROUTER_TAGS.has(tagName)) {
+        ctx._attrs = extractJsxAttrs(node, ts);
+      }
 
       contexts.push(ctx);
       if (jsxParent && isDirectChild) {
@@ -546,6 +607,39 @@ const rules = [
       }
 
       return `Container with ${ctx.directChildren.length} direct children has no explicit width/height — add explicit dimensions for deterministic layout`;
+    },
+  },
+
+  // ── Router rules ──────────────────────────────────────────
+
+  // <Link> without a `to` prop navigates nowhere
+  {
+    name: 'no-link-without-to',
+    severity: 'error',
+    check(ctx) {
+      if (ctx.tagName !== 'Link') return null;
+      if (!ctx._attrs) return null;
+      if (ctx._attrs.has('to')) return null;
+      return '<Link> is missing the "to" prop — it must specify a navigation target (e.g. <Link to="/page">)';
+    },
+  },
+
+  // <Routes> without a path="*" fallback renders nothing for unmatched URLs
+  {
+    name: 'no-routes-without-fallback',
+    severity: 'warning',
+    check(ctx) {
+      if (ctx.tagName !== 'Routes') return null;
+      if (ctx.directChildren.length === 0) return null;
+
+      const hasCatchAll = ctx.directChildren.some((child) => {
+        return child.tagName === 'Route' && child._attrs && child._attrs.get('path') === '*';
+      });
+
+      if (!hasCatchAll) {
+        return '<Routes> has no <Route path="*"> fallback — unmatched URLs will render nothing. Add a catch-all route for 404 handling';
+      }
+      return null;
     },
   },
 

@@ -20,7 +20,8 @@
       "@ilovereact/hs": ["./packages/hs/src"],
       "@ilovereact/awesome": ["./packages/awesome/src"],
       "@ilovereact/terminal": ["./packages/terminal/src"],
-      "@ilovereact/components": ["./packages/components/src"]
+      "@ilovereact/components": ["./packages/components/src"],
+      "@ilovereact/router": ["./packages/router/src"]
     }
   }
 }
