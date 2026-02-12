@@ -102,6 +102,38 @@ function main() {
 
   console.log('');
   console.log(`  Generated ${Object.keys(endpoints).length} endpoint files in dist/llms/`);
+
+  // Step 4: Generate content.json for React docs viewer
+  console.log('  Generating content.json for React viewer...');
+  const jsonDir = join(ROOT, 'examples', 'storybook', 'src', 'generated');
+  mkdirSync(jsonDir, { recursive: true });
+
+  // Strip raw field to save bytes — the React viewer doesn't need it
+  const slimDir = {
+    sections: Object.fromEntries(
+      Object.entries(dir.sections).map(([sectionId, files]) => [
+        sectionId,
+        Object.fromEntries(
+          Object.entries(files).map(([key, content]) => [
+            key,
+            { filePath: content.filePath, metadata: content.metadata, sections: content.sections },
+          ])
+        ),
+      ])
+    ),
+    allFiles: dir.allFiles.map(f => ({
+      filePath: f.filePath,
+      metadata: f.metadata,
+      sections: f.sections,
+    })),
+  };
+
+  const jsonContent = JSON.stringify(slimDir);
+  const jsonPath = join(jsonDir, 'content.json');
+  writeFileSync(jsonPath, jsonContent, 'utf-8');
+  const jsonSizeKB = (Buffer.byteLength(jsonContent, 'utf-8') / 1024).toFixed(1);
+  console.log(`    content.json (${jsonSizeKB} KB)`);
+
   console.log('  Done.');
   console.log('');
 }

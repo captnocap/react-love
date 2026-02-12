@@ -14,13 +14,16 @@ import { createRoot } from '../../../packages/native/src/NativeRenderer';
 import { BridgeProvider, RendererProvider } from '../../../packages/shared/src/context';
 import { Box, Text, Pressable } from '../../../packages/shared/src';
 import { stories, type StoryDef } from './stories';
+import { DocsViewer } from './docs/DocsViewer';
+import contentData from './generated/content.json';
 
 // ── HMR state sync ───────────────────────────────────────
 
 let currentActiveIdx = 0;
+let currentMode: 'stories' | 'docs' = 'stories';
 
 // Expose state getter for HMR — Lua calls this before teardown
-(globalThis as any).__getDevState = () => ({ activeIdx: currentActiveIdx });
+(globalThis as any).__getDevState = () => ({ activeIdx: currentActiveIdx, mode: currentMode });
 
 // ── Story browser (sidebar + viewer) ─────────────────────
 
@@ -33,7 +36,7 @@ function groupByCategory(list: StoryDef[]): Map<string, StoryDef[]> {
   return map;
 }
 
-function Storybook() {
+function StorybookPanel() {
   const initialIdx = (globalThis as any).__devState?.activeIdx ?? 0;
   const [activeIdx, setActiveIdx] = useState(initialIdx);
   currentActiveIdx = activeIdx; // sync for __getDevState
@@ -124,6 +127,72 @@ function Storybook() {
         <Box style={{ flexGrow: 1, overflow: 'scroll' }}>
           {StoryComp && <StoryComp key={active.id} />}
         </Box>
+      </Box>
+    </Box>
+  );
+}
+
+// ── Top-level mode switcher ──────────────────────────────
+
+function Storybook() {
+  const initialMode = (globalThis as any).__devState?.mode ?? 'stories';
+  const [mode, setMode] = useState<'stories' | 'docs'>(initialMode);
+  currentMode = mode;
+
+  return (
+    <Box style={{ width: '100%', height: '100%' }}>
+      {/* Mode toggle bar */}
+      <Box style={{
+        flexDirection: 'row',
+        backgroundColor: '#0c0c14',
+        borderWidth: 1,
+        borderColor: '#1e293b',
+        padding: 4,
+        gap: 2,
+      }}>
+        <Pressable
+          onPress={() => setMode('stories')}
+          style={{
+            paddingLeft: 10,
+            paddingRight: 10,
+            paddingTop: 4,
+            paddingBottom: 4,
+            borderRadius: 4,
+            backgroundColor: mode === 'stories' ? '#1e293b' : 'transparent',
+          }}
+        >
+          <Text style={{
+            color: mode === 'stories' ? '#e2e8f0' : '#64748b',
+            fontSize: 10,
+            fontWeight: 'bold',
+          }}>
+            Stories
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setMode('docs')}
+          style={{
+            paddingLeft: 10,
+            paddingRight: 10,
+            paddingTop: 4,
+            paddingBottom: 4,
+            borderRadius: 4,
+            backgroundColor: mode === 'docs' ? '#1e293b' : 'transparent',
+          }}
+        >
+          <Text style={{
+            color: mode === 'docs' ? '#e2e8f0' : '#64748b',
+            fontSize: 10,
+            fontWeight: 'bold',
+          }}>
+            Docs
+          </Text>
+        </Pressable>
+      </Box>
+
+      {/* Content */}
+      <Box style={{ flexGrow: 1 }}>
+        {mode === 'stories' ? <StorybookPanel /> : <DocsViewer content={contentData as any} />}
       </Box>
     </Box>
   );
