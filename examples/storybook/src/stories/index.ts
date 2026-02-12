@@ -42,6 +42,11 @@ import { WeatherDemoStory } from './WeatherDemo';
 import { ErrorTestStory } from './ErrorTest';
 import { BlockTestStory } from './BlockTestStory';
 import { TextEditorStory } from './TextEditorStory';
+import { TableStory } from './TableStory';
+import { BarChartStory } from './BarChartStory';
+import { ProgressBarStory } from './ProgressBarStory';
+import { SparklineStory } from './SparklineStory';
+import { DataDashboardDemoStory } from './DataDashboardDemo';
 
 export const stories: StoryDef[] = [
   // Primitives
@@ -89,10 +94,17 @@ export const stories: StoryDef[] = [
   { id: 'animation-timing', title: 'Spring Width', category: 'Animation', component: AnimationTimingStory },
   { id: 'animation-spring', title: 'Spring Position', category: 'Animation', component: AnimationSpringStory },
 
+  // Data
+  { id: 'table', title: 'Table', category: 'Data', component: TableStory },
+  { id: 'bar-chart', title: 'Bar Chart', category: 'Data', component: BarChartStory },
+  { id: 'progress-bar', title: 'Progress Bar', category: 'Data', component: ProgressBarStory },
+  { id: 'sparkline', title: 'Sparkline', category: 'Data', component: SparklineStory },
+
   // Demo
   { id: 'settings-demo', title: 'Settings Demo', category: 'Demo', component: SettingsDemoStory },
   { id: 'neofetch-demo', title: 'Neofetch', category: 'Demo', component: NeofetchDemoStory },
   { id: 'weather-demo', title: 'Weather', category: 'Demo', component: WeatherDemoStory },
+  { id: 'data-dashboard', title: 'Data Dashboard', category: 'Demo', component: DataDashboardDemoStory },
 
   // Dev Tools
   { id: 'error-test', title: 'Error Test', category: 'Dev Tools', component: ErrorTestStory },

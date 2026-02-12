@@ -86,6 +86,12 @@ export { Badge, type BadgeProps, type BadgeVariant } from './Badge';
 // Divider
 export { Divider, type DividerProps } from './Divider';
 
+// Data visualization
+export { Table, type TableProps, type TableColumn } from './Table';
+export { BarChart, type BarChartProps, type BarChartBar } from './BarChart';
+export { ProgressBar, type ProgressBarProps } from './ProgressBar';
+export { Sparkline, type SparklineProps } from './Sparkline';
+
 // Animation
 export {
   AnimatedValue,
