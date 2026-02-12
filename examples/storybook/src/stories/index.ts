@@ -47,6 +47,11 @@ import { BarChartStory } from './BarChartStory';
 import { ProgressBarStory } from './ProgressBarStory';
 import { SparklineStory } from './SparklineStory';
 import { DataDashboardDemoStory } from './DataDashboardDemo';
+import { NavPanelStory } from './NavPanelStory';
+import { TabsStory } from './TabsStory';
+import { BreadcrumbsStory } from './BreadcrumbsStory';
+import { ToolbarStory } from './ToolbarStory';
+import { AppShellDemoStory } from './AppShellDemo';
 
 export const stories: StoryDef[] = [
   // Primitives
@@ -94,6 +99,12 @@ export const stories: StoryDef[] = [
   { id: 'animation-timing', title: 'Spring Width', category: 'Animation', component: AnimationTimingStory },
   { id: 'animation-spring', title: 'Spring Position', category: 'Animation', component: AnimationSpringStory },
 
+  // Navigation
+  { id: 'nav-panel', title: 'NavPanel', category: 'Navigation', component: NavPanelStory },
+  { id: 'tabs', title: 'Tabs', category: 'Navigation', component: TabsStory },
+  { id: 'breadcrumbs', title: 'Breadcrumbs', category: 'Navigation', component: BreadcrumbsStory },
+  { id: 'toolbar', title: 'Toolbar', category: 'Navigation', component: ToolbarStory },
+
   // Data
   { id: 'table', title: 'Table', category: 'Data', component: TableStory },
   { id: 'bar-chart', title: 'Bar Chart', category: 'Data', component: BarChartStory },
@@ -105,6 +116,7 @@ export const stories: StoryDef[] = [
   { id: 'neofetch-demo', title: 'Neofetch', category: 'Demo', component: NeofetchDemoStory },
   { id: 'weather-demo', title: 'Weather', category: 'Demo', component: WeatherDemoStory },
   { id: 'data-dashboard', title: 'Data Dashboard', category: 'Demo', component: DataDashboardDemoStory },
+  { id: 'app-shell', title: 'App Shell', category: 'Demo', component: AppShellDemoStory },
 
   // Dev Tools
   { id: 'error-test', title: 'Error Test', category: 'Dev Tools', component: ErrorTestStory },
