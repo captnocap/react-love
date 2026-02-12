@@ -24,7 +24,7 @@ function Clock() {
 
   return (
     <Box style={{ backgroundColor: '#1a1a2e', padding: 1 }}>
-      <Text style={{ color: '#e94560' }}>{time}</Text>
+      <Text style={{ color: '#e94560', fontSize: 13 }}>{time}</Text>
     </Box>
   );
 }
@@ -37,13 +37,13 @@ function ProgressBar({ label, value, color }: { label: string; value: number; co
   return (
     <Box style={{ flexDirection: 'row', padding: 1 }}>
       <Box style={{ width: 8 }}>
-        <Text style={{ color: '#888888' }}>{label}</Text>
+        <Text style={{ color: '#888888', fontSize: 13 }}>{label}</Text>
       </Box>
       <Box style={{ flexGrow: 1 }}>
-        <Text style={{ color }}>{bar}</Text>
+        <Text style={{ color, fontSize: 13 }}>{bar}</Text>
       </Box>
       <Box style={{ width: 6 }}>
-        <Text style={{ color: '#ffffff' }}>{value}%</Text>
+        <Text style={{ color: '#ffffff', fontSize: 13 }}>{`${value}%`}</Text>
       </Box>
     </Box>
   );
@@ -76,7 +76,7 @@ export default function App() {
     <Box style={{ width: '100%', height: '100%', backgroundColor: '#0a0a0a', flexDirection: 'column' }}>
       {/* Header */}
       <Box style={{ backgroundColor: '#16213e', padding: 1 }}>
-        <Text style={{ color: '#e94560' }}>iLoveReact Terminal</Text>
+        <Text style={{ color: '#e94560', fontSize: 13 }}>iLoveReact Terminal</Text>
       </Box>
 
       {/* Clock */}
@@ -84,13 +84,13 @@ export default function App() {
 
       {/* System metrics */}
       <Box style={{ backgroundColor: '#0f0f23', padding: 1, flexGrow: 1 }}>
-        <Text style={{ color: '#444466' }}>System Resources</Text>
+        <Text style={{ color: '#444466', fontSize: 13 }}>System Resources</Text>
         <SystemInfo />
       </Box>
 
       {/* Footer */}
       <Box style={{ backgroundColor: '#16213e', padding: 1 }}>
-        <Text style={{ color: '#555577' }}>Press Ctrl+C to exit</Text>
+        <Text style={{ color: '#555577', fontSize: 13 }}>Press Ctrl+C to exit</Text>
       </Box>
     </Box>
   );

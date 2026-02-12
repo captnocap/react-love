@@ -86,6 +86,18 @@ export { Badge, type BadgeProps, type BadgeVariant } from './Badge';
 // Divider
 export { Divider, type DividerProps } from './Divider';
 
+// Navigation
+export { NavPanel, type NavPanelProps, type NavItem, type NavSection } from './NavPanel';
+export { Tabs, type TabsProps, type Tab } from './Tabs';
+export { Breadcrumbs, type BreadcrumbsProps, type BreadcrumbItem } from './Breadcrumbs';
+export { Toolbar, type ToolbarProps, type ToolbarEntry } from './Toolbar';
+
+// Data visualization
+export { Table, type TableProps, type TableColumn } from './Table';
+export { BarChart, type BarChartProps, type BarChartBar } from './BarChart';
+export { ProgressBar, type ProgressBarProps } from './ProgressBar';
+export { Sparkline, type SparklineProps } from './Sparkline';
+
 // Animation
 export {
   AnimatedValue,

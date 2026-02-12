@@ -60,4 +60,4 @@ export {
   Image,
   styleToCSS,
   colorToCSS,
-} from '@ilovereact/core';
+} from '../../shared/src';

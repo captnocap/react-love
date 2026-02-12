@@ -187,12 +187,13 @@ export function WeatherDemoStory() {
             justifyContent: 'space-between',
             alignItems: 'flex-end',
             flexGrow: 1,
+            width: '100%',
           }}>
             {FORECAST.map((f) => (
               <Box key={f.day} style={{ gap: 4, alignItems: 'center' }}>
                 <Text style={{ color: DIM, fontSize: 10, fontWeight: '700' }}>{f.day}</Text>
                 <Text style={{ color: tempColor(f.temp), fontSize: 13, fontWeight: '700' }}>
-                  {f.temp}°
+                  {`${f.temp}°`}
                 </Text>
                 <Box style={{
                   width: 16,
@@ -251,7 +252,7 @@ export function WeatherDemoStory() {
       </Box>
 
       {/* ═══ Footer: palette + timestamp ═══ */}
-      <Box style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
         <Box style={{ flexDirection: 'row', gap: 3 }}>
           {[COOL, ACCENT, '#3B82F6', WARM, HOT, '#22C55E', MUTED, BG_CARD].map((color, i) => (
             <Box key={i} style={{ width: 28, height: 10, backgroundColor: color, borderRadius: 2 }} />

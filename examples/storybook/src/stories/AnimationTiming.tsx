@@ -32,7 +32,7 @@ export function AnimationTimingStory() {
         overflow: 'hidden',
       }}>
         <Text style={{ color: '#fff', fontSize: 12 }}>
-          {Math.round(width)}px
+          {`${Math.round(width)}px`}
         </Text>
       </Box>
 

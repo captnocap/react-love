@@ -21,16 +21,16 @@ function Clock() {
 
   return (
     <Box style={{ backgroundColor: '#3366CC', padding: 1 }}>
-      <Text style={{ color: '#FFFFFF' }}>{time}</Text>
+      <Text style={{ color: '#FFFFFF', fontSize: 12 }}>{time}</Text>
     </Box>
   );
 }
 
 function StatusCard({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <Box style={{ backgroundColor: color, padding: 1, flexGrow: 1 }}>
-      <Text style={{ color: '#FFFFFF' }}>{label}</Text>
-      <Text style={{ color: '#DEDE6C' }}>{value}</Text>
+    <Box style={{ backgroundColor: color, padding: 1, width: '100%', height: '100%' }}>
+      <Text style={{ color: '#FFFFFF', fontSize: 12 }}>{label}</Text>
+      <Text style={{ color: '#DEDE6C', fontSize: 12 }}>{value}</Text>
     </Box>
   );
 }
@@ -39,7 +39,7 @@ export default function App() {
   return (
     <Box style={{ width: '100%', height: '100%', backgroundColor: '#111111', flexDirection: 'column', gap: 1 }}>
       <Box style={{ backgroundColor: '#4C4C4C', padding: 1 }}>
-        <Text style={{ color: '#FFFFFF' }}>iLoveReact Neovim</Text>
+        <Text style={{ color: '#FFFFFF', fontSize: 12 }}>iLoveReact Neovim</Text>
       </Box>
       <Clock />
       <Box style={{ flexDirection: 'row', gap: 1 }}>

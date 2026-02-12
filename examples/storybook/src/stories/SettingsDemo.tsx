@@ -16,7 +16,7 @@ function SectionHeader({ children }: { children: string }) {
 
 function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <Box style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+    <Box style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
       <Text style={{ color: '#cbd5e1', fontSize: 14 }}>{label}</Text>
       {children}
     </Box>
@@ -29,6 +29,7 @@ function KeybindRow({ action, keyName, last }: { action: string; keyName: string
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
+      width: '100%',
       padding: 10,
       borderLeftWidth: 3,
       borderLeftColor: '#3b82f6',

@@ -12,7 +12,7 @@ export function BorderRadiusStory() {
             borderRadius: r,
             justifyContent: 'center', alignItems: 'center',
           }}>
-            <Text style={{ color: '#fff', fontSize: 11 }}>{r}px</Text>
+            <Text style={{ color: '#fff', fontSize: 11 }}>{`${r}px`}</Text>
           </Box>
         ))}
       </Box>
@@ -28,7 +28,7 @@ export function BorderRadiusStory() {
             borderColor: '#22c55e',
             justifyContent: 'center', alignItems: 'center',
           }}>
-            <Text style={{ color: '#22c55e', fontSize: 11 }}>{r}px</Text>
+            <Text style={{ color: '#22c55e', fontSize: 11 }}>{`${r}px`}</Text>
           </Box>
         ))}
       </Box>

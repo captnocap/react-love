@@ -24,13 +24,22 @@ local events   = nil   -- events.lua module
 local measure  = nil   -- measure.lua module (text measurement + font cache)
 local errors     = require("lua.errors")      -- error overlay (always loaded, self-contained)
 local inspector  = require("lua.inspector")   -- debug inspector (F12 toggle, self-contained)
+local console    = require("lua.console")     -- interactive eval console (` toggle, self-contained)
 local screenshot = nil                        -- screenshot.lua (loaded on demand)
+local inspectorEnabled = true                 -- can be disabled via config.inspector = false
 
+local animate  = nil   -- animate.lua module (Lua-side transitions/animations)
 local images   = nil   -- images.lua module (image cache)
+local focus    = require("lua.focus")         -- focus manager for Lua-owned inputs
+local texteditor = nil                        -- texteditor.lua (loaded on demand)
 
 local mode     = nil   -- "web", "native", or "canvas"
 local basePath = nil   -- directory containing these modules
 local initConfig = nil -- stashed config from init() for reload()
+
+-- Interaction style overlay tracking (hoverStyle / activeStyle)
+-- Maps nodeId -> { [propKey] = baseValue } for properties overridden by interaction
+local interactionBase = {}
 
 -- HMR state
 local hmrFrameCounter = 0
@@ -96,6 +105,85 @@ local function pushEvent(evt)
 end
 
 -- ============================================================================
+-- Interaction style overlay (hoverStyle / activeStyle)
+-- ============================================================================
+
+--- Apply or remove hoverStyle/activeStyle overlays on a node based on current
+--- hover and pressed state. Uses the transition system for smooth animations
+--- when the node has a `transition` config in its style.
+--- This runs entirely in Lua for 0-frame latency feedback.
+local function applyInteractionStyle(node)
+  if not node or not node.props then return end
+
+  local hoverStyle = node.props.hoverStyle
+  local activeStyle = node.props.activeStyle
+  if not hoverStyle and not activeStyle then return end
+
+  local isHovered = events and events.getHoveredNode() == node
+  local isPressed = events and events.getPressedNode() == node
+
+  -- Get or create base style tracking for this node
+  if not interactionBase[node.id] then
+    interactionBase[node.id] = {}
+  end
+  local base = interactionBase[node.id]
+
+  -- Collect all overridable keys from both hover and active styles
+  local allKeys = {}
+  if hoverStyle then for k in pairs(hoverStyle) do allKeys[k] = true end end
+  if activeStyle then for k in pairs(activeStyle) do allKeys[k] = true end end
+
+  local oldValues = {}
+  local newValues = {}
+  local anyChange = false
+
+  for k in pairs(allKeys) do
+    -- Save base value if not already saved (use sentinel for nil)
+    if base[k] == nil then
+      if node.style[k] == nil then
+        base[k] = "__NIL__"
+      else
+        base[k] = node.style[k]
+      end
+    end
+
+    -- Compute target: active > hover > base (priority order)
+    local target
+    if isPressed and activeStyle and activeStyle[k] ~= nil then
+      target = activeStyle[k]
+    elseif isHovered and hoverStyle and hoverStyle[k] ~= nil then
+      target = hoverStyle[k]
+    else
+      target = base[k]
+      if target == "__NIL__" then target = nil end
+    end
+
+    local current = node.style[k]
+    if current ~= target then
+      oldValues[k] = current
+      newValues[k] = target
+      node.style[k] = target
+      anyChange = true
+    end
+  end
+
+  -- Clean up base tracking if no longer hovered or pressed
+  if not isHovered and not isPressed then
+    interactionBase[node.id] = nil
+  end
+
+  -- Trigger transitions if configured
+  if anyChange and animate and node.style.transition then
+    animate.processStyleUpdate(node, oldValues, newValues)
+  end
+
+  -- Mark tree dirty if anything changed (layout or visual)
+  if anyChange and tree then
+    tree.markDirty()
+  end
+end
+
+-- ============================================================================
 -- HMR helpers
 -- ============================================================================
 
@@ -141,6 +229,9 @@ function ReactLove.init(config)
   config = config or {}
   basePath = resolveBasePath()
 
+  -- Inspector/console can be disabled for production builds
+  inspectorEnabled = config.inspector ~= false
+
   mode = detectMode(config)
   local ns = config.namespace or "default"
 
@@ -160,9 +251,12 @@ function ReactLove.init(config)
 
     measure = require("lua.measure")
     images  = require("lua.images")
+    animate = require("lua.animate")
 
     tree    = require("lua.tree")
-    tree.init({ images = images })
+    tree.init({ images = images, animate = animate })
+
+    animate.init({ tree = tree })
 
     layout  = require("lua.layout")
     layout.init({ measure = measure })
@@ -172,6 +266,9 @@ function ReactLove.init(config)
 
     events  = require("lua.events")
     events.setTreeModule(tree)
+
+    texteditor = require("lua.texteditor")
+    texteditor.init({ measure = measure })
 
     print("[react-love] Initialized in CANVAS mode (Module.FS bridge + native rendering)")
 
@@ -187,9 +284,12 @@ function ReactLove.init(config)
 
     measure = require("lua.measure")
     images  = require("lua.images")
+    animate = require("lua.animate")
 
     tree    = require("lua.tree")
-    tree.init({ images = images })
+    tree.init({ images = images, animate = animate })
+
+    animate.init({ tree = tree })
 
     layout  = require("lua.layout")
     layout.init({ measure = measure })
@@ -199,6 +299,9 @@ function ReactLove.init(config)
 
     events  = require("lua.events")
     events.setTreeModule(tree)
+
+    texteditor = require("lua.texteditor")
+    texteditor.init({ measure = measure })
 
     -- Load the bundled React app into QuickJS
     local bundleJS = love.filesystem.read(initConfig.bundlePath)
@@ -219,6 +322,12 @@ function ReactLove.init(config)
     ReactLove._needsMount = true
 
     print("[react-love] Initialized in NATIVE mode (QuickJS bridge)")
+  end
+
+  -- Wire up console + inspector (only in rendering modes with inspector enabled)
+  if isRendering() and inspectorEnabled then
+    console.init({ bridge = bridge, tree = tree, inspector = inspector })
+    inspector.setConsole(console)
   end
 
   -- Screenshot mode (env var trigger, works in native and canvas modes)
@@ -260,21 +369,31 @@ function ReactLove.update(dt)
       end
     end
 
-    -- 3. Relayout if tree changed
+    -- 3. Tick Lua-side transitions and animations (before layout)
+    if animate then animate.tick(dt) end
+
+    -- 4. Relayout if tree changed
     if tree.isDirty() then
       local root = tree.getTree()
       if root then
-        if inspector.isEnabled() then inspector.beginLayout() end
+        if inspectorEnabled and inspector.isEnabled() then inspector.beginLayout() end
         layout.layout(root)
-        if inspector.isEnabled() then inspector.endLayout() end
+        if inspectorEnabled and inspector.isEnabled() then inspector.endLayout() end
       end
       tree.clearDirty()
     end
 
-    inspector.update(dt)
+    -- Update TextEditor blink timer if one has focus (canvas mode)
+    local canvasFocusedNode = focus.get()
+    if canvasFocusedNode and canvasFocusedNode.type == "TextEditor" then
+      texteditor.update(canvasFocusedNode, dt)
+    end
+
+    if inspectorEnabled then inspector.update(dt) end
+    if inspectorEnabled then console.update(dt) end
     if screenshot then screenshot.update() end
 
-    -- 4. Flush bridge outbox (events back to JS)
+    -- 5. Flush bridge outbox (events back to JS)
     bridge.flush()
     return
   end
@@ -337,18 +456,28 @@ function ReactLove.update(dt)
     tree.applyCommands(commands)
   end
 
-  -- 5. Relayout if tree changed
+  -- 5. Tick Lua-side transitions and animations (before layout)
+  if animate then animate.tick(dt) end
+
+  -- 6. Relayout if tree changed
   if tree.isDirty() then
     local root = tree.getTree()
     if root then
-      if inspector.isEnabled() then inspector.beginLayout() end
+      if inspectorEnabled and inspector.isEnabled() then inspector.beginLayout() end
       layout.layout(root)
-      if inspector.isEnabled() then inspector.endLayout() end
+      if inspectorEnabled and inspector.isEnabled() then inspector.endLayout() end
     end
     tree.clearDirty()
   end
 
-  inspector.update(dt)
+  -- Update TextEditor blink timer if one has focus
+  local focusedNode = focus.get()
+  if focusedNode and focusedNode.type == "TextEditor" then
+    texteditor.update(focusedNode, dt)
+  end
+
+  if inspectorEnabled then inspector.update(dt) end
+  if inspectorEnabled then console.update(dt) end
   if screenshot then screenshot.update() end
 end
 
@@ -377,9 +506,9 @@ function ReactLove.draw()
         end
       end
     end
-    if inspector.isEnabled() then inspector.beginPaint() end
+    if inspectorEnabled and inspector.isEnabled() then inspector.beginPaint() end
     local ok, paintErr = pcall(painter.paint, root)
-    if inspector.isEnabled() then inspector.endPaint() end
+    if inspectorEnabled and inspector.isEnabled() then inspector.endPaint() end
     if not ok then
       errors.push({
         source = "lua",
@@ -390,7 +519,7 @@ function ReactLove.draw()
   end
 
   -- Inspector overlay (after paint, before errors)
-  inspector.draw(root)
+  if inspectorEnabled then inspector.draw(root) end
 
   -- Error overlay renders on top of everything, using raw Love2D calls
   errors.draw()
@@ -405,7 +534,7 @@ end
 function ReactLove.mousepressed(x, y, button)
   -- Error overlay gets first crack at mouse events
   if errors.mousepressed(x, y, button) then return end
-  if inspector.mousepressed(x, y, button) then return end
+  if inspectorEnabled and inspector.mousepressed(x, y, button) then return end
 
   if not isRendering() then return end
 
@@ -413,14 +542,51 @@ function ReactLove.mousepressed(x, y, button)
   if not root then return end
 
   local hit = events.hitTest(root, x, y)
-  if hit then
-    -- Always start drag tracking on any clicked node
-    -- JS side will decide if it has drag handlers
-    events.startDrag(hit.id, x, y)
 
-    -- Fire click event with bubblePath
-    local bubblePath = events.buildBubblePath(hit)
-    pushEvent(events.createEvent("click", hit.id, x, y, button, bubblePath))
+  -- Handle TextEditor focus transitions
+  local focusedNode = focus.get()
+  if focusedNode and focusedNode.type == "TextEditor" then
+    if hit ~= focusedNode then
+      -- Clicking away from a focused TextEditor: blur it
+      local value = texteditor.blur(focusedNode)
+      focus.clear()
+      pushEvent({
+        type = "texteditor:blur",
+        payload = {
+          type = "texteditor:blur",
+          targetId = focusedNode.id,
+          value = value,
+        }
+      })
+    end
+  end
+
+  if hit then
+    if hit.type == "TextEditor" then
+      -- Clicked a TextEditor: handle internally
+      if texteditor.handleMousePressed(hit, x, y, button) then
+        if not focus.isFocused(hit) then
+          focus.set(hit)
+          pushEvent({
+            type = "texteditor:focus",
+            payload = {
+              type = "texteditor:focus",
+              targetId = hit.id,
+              value = texteditor.getValue(hit),
+            }
+          })
+        end
+      end
+    else
+      -- Normal node: standard drag + click handling
+      events.startDrag(hit.id, x, y)
+      local bubblePath = events.buildBubblePath(hit)
+      pushEvent(events.createEvent("click", hit.id, x, y, button, bubblePath))
+
+      -- Apply active (pressed) interaction style (0-frame latency)
+      events.setPressedNode(hit)
+      applyInteractionStyle(hit)
+    end
   end
 end
 
@@ -429,6 +595,12 @@ end
 function ReactLove.mousereleased(x, y, button)
   if not isRendering() then return end
 
+  -- TextEditor drag selection release
+  local focusedNode = focus.get()
+  if focusedNode and focusedNode.type == "TextEditor" then
+    texteditor.handleMouseReleased(focusedNode)
+  end
+
   local root = tree.getTree()
   if not root then return end
 
@@ -436,6 +608,13 @@ function ReactLove.mousereleased(x, y, button)
   local dragEndEvent = events.endDrag(x, y)
   if dragEndEvent then
     pushEvent(dragEndEvent)
+  end
+
+  -- Clear pressed (active) state and revert active style (0-frame latency)
+  local prevPressed = events.getPressedNode()
+  events.clearPressedNode()
+  if prevPressed then
+    applyInteractionStyle(prevPressed)
   end
 
   -- Dispatch normal release event with bubblePath
@@ -450,8 +629,16 @@ end
 --- Tracks pointer enter/leave and dispatches hover events.
 --- Also updates drag state if a drag is active.
 function ReactLove.mousemoved(x, y)
-  inspector.mousemoved(x, y)
+  if inspectorEnabled then inspector.mousemoved(x, y) end
   if not isRendering() then return end
+
+  -- TextEditor drag selection
+  local focusedNode = focus.get()
+  if focusedNode and focusedNode.type == "TextEditor" then
+    if texteditor.handleMouseMoved(focusedNode, x, y) then
+      return  -- TextEditor consumed the mouse move
+    end
+  end
 
   local root = tree.getTree()
   if not root then return end
@@ -472,9 +659,17 @@ function ReactLove.mousemoved(x, y)
   end
 
   -- Normal hover tracking when not dragging
+  local prevHovered = events.getHoveredNode()
   local hoverEvents = events.updateHover(root, x, y)
   for _, evt in ipairs(hoverEvents) do
     pushEvent(evt)
+  end
+
+  -- Apply interaction style overlays for hover state changes (0-frame latency)
+  local currHovered = events.getHoveredNode()
+  if prevHovered ~= currHovered then
+    if prevHovered then applyInteractionStyle(prevHovered) end
+    if currHovered then applyInteractionStyle(currHovered) end
   end
 end
 
@@ -493,10 +688,39 @@ end
 --- Call from love.keypressed(key, scancode, isrepeat).
 --- Dispatches a global keydown event to all JS keyboard listeners.
 function ReactLove.keypressed(key, scancode, isrepeat)
-  if inspector.keypressed(key) then return end
+  if inspectorEnabled and inspector.keypressed(key) then return end
   if not isRendering() then return end
-  if not bridge then return end
 
+  -- Route to focused TextEditor if any
+  local focusedNode = focus.get()
+  if focusedNode and focusedNode.type == "TextEditor" then
+    local result = texteditor.handleKeyPressed(focusedNode, key, scancode, isrepeat)
+    if result == "blur" then
+      local value = texteditor.blur(focusedNode)
+      focus.clear()
+      pushEvent({
+        type = "texteditor:blur",
+        payload = {
+          type = "texteditor:blur",
+          targetId = focusedNode.id,
+          value = value,
+        }
+      })
+    elseif result == "submit" then
+      local value = texteditor.getValue(focusedNode)
+      pushEvent({
+        type = "texteditor:submit",
+        payload = {
+          type = "texteditor:submit",
+          targetId = focusedNode.id,
+          value = value,
+        }
+      })
+    end
+    return  -- consumed by TextEditor, do NOT broadcast to bridge
+  end
+
+  if not bridge then return end
   pushEvent(events.createKeyEvent("keydown", key, scancode, isrepeat))
 end
 
@@ -504,17 +728,32 @@ end
 --- Dispatches a global keyup event to all JS keyboard listeners.
 function ReactLove.keyreleased(key, scancode)
   if not isRendering() then return end
-  if not bridge then return end
 
+  -- Suppress keyup when TextEditor has focus
+  local focusedNode = focus.get()
+  if focusedNode and focusedNode.type == "TextEditor" then
+    return
+  end
+
+  if not bridge then return end
   pushEvent(events.createKeyEvent("keyup", key, scancode, false))
 end
 
 --- Call from love.textinput(text).
 --- Dispatches a text input event (handles unicode, IME, etc.).
 function ReactLove.textinput(text)
+  -- Inspector/console captures text input when active
+  if inspectorEnabled and inspector.textinput(text) then return end
   if not isRendering() then return end
-  if not bridge then return end
 
+  -- Route to focused TextEditor if any
+  local focusedNode = focus.get()
+  if focusedNode and focusedNode.type == "TextEditor" then
+    texteditor.handleTextInput(focusedNode, text)
+    return  -- consumed, no bridge traffic
+  end
+
+  if not bridge then return end
   pushEvent(events.createTextInputEvent(text))
 end
 
@@ -523,7 +762,7 @@ end
 --- directly in Lua for immediate visual response AND send the event to JS.
 --- The scroll speed multiplier converts Love2D wheel units to pixels.
 function ReactLove.wheelmoved(x, y)
-  if inspector.wheelmoved(x, y) then return end
+  if inspectorEnabled and inspector.wheelmoved(x, y) then return end
   if not isRendering() then return end
 
   local root = tree.getTree()
@@ -533,6 +772,12 @@ function ReactLove.wheelmoved(x, y)
   local mx, my = love.mouse.getPosition()
   local hit = events.hitTest(root, mx, my)
   if not hit then return end
+
+  -- TextEditor handles its own scroll entirely in Lua
+  if hit.type == "TextEditor" then
+    texteditor.handleWheel(hit, x, y)
+    return  -- no bridge traffic
+  end
 
   -- Check if the hit node or any ancestor is a scroll container
   local scrollContainer = events.findScrollContainer(hit, mx, my)
@@ -641,8 +886,13 @@ function ReactLove.reload()
   -- 2. Teardown
   bridge:destroy()
   if images then images.clearCache() end
-  tree.init({ images = images })
+  if animate then animate.clear() end
+  tree.init({ images = images, animate = animate })
+  if animate then animate.init({ tree = tree }) end
   events.clearHover()
+  events.clearPressedNode()
+  interactionBase = {}
+  focus.clear()
   pcall(function() events.endDrag(0, 0) end)
   measure.clearCache()
 
@@ -681,7 +931,12 @@ function ReactLove.reload()
     return
   end
 
-  -- 7. Trigger mount on next update
+  -- 7. Update console refs (bridge was recreated)
+  if inspectorEnabled then
+    console.updateRefs({ bridge = bridge, tree = tree })
+  end
+
+  -- 8. Trigger mount on next update
   ReactLove._needsMount = true
   ReactLove._loggedCommands = nil
   ReactLove._loggedDraw = nil

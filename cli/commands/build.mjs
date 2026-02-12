@@ -3,6 +3,7 @@ import { join, basename, dirname } from 'node:path';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { runLint } from './lint.mjs';
+import { updateCommand } from './update.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_ROOT = join(__dirname, '..');
@@ -10,10 +11,17 @@ const CLI_ROOT = join(__dirname, '..');
 export async function buildCommand(args) {
   const cwd = process.cwd();
   const projectName = basename(cwd);
-  const target = args[0]; // e.g. "dist:love", "dist:terminal", or undefined
+  const hasDebugFlag = args.includes('--debug');
+  const skipUpdate = args.includes('--no-update');
+  const target = args.filter(a => !a.startsWith('--'))[0]; // e.g. "dist:love", "dist:terminal", or undefined
+
+  // Auto-update runtime files before building
+  if (!skipUpdate) {
+    await updateCommand([]);
+  }
 
   if (target === 'dist:love') {
-    await buildDistLove(cwd, projectName);
+    await buildDistLove(cwd, projectName, { debug: hasDebugFlag });
   } else if (target === 'dist:terminal') {
     await buildDistTerminal(cwd, projectName);
   } else if (!target) {
@@ -97,7 +105,7 @@ async function buildBundle(cwd, projectName) {
 // Linux with zero dependencies. Bundles Love2D, all shared libraries
 // (including glibc), and the .love game archive.
 
-async function buildDistLove(cwd, projectName) {
+async function buildDistLove(cwd, projectName, opts = {}) {
   const entry = findEntry(cwd, 'src/main-love.tsx', 'src/native-main.tsx', 'src/main.tsx');
   const luaDir = findLuaRuntime(cwd);
   const libquickjs = findLibQuickJS(cwd);
@@ -161,6 +169,21 @@ async function buildDistLove(cwd, projectName) {
   cpSync(mainLua, join(stagingDir, 'main.lua'));
   cpSync(confLua, join(stagingDir, 'conf.lua'));
   cpSync(luaDir, join(stagingDir, 'lua'), { recursive: true });
+
+  // Disable inspector in dist builds unless --debug is passed
+  if (!opts.debug) {
+    const stagedMain = join(stagingDir, 'main.lua');
+    let mainContent = readFileSync(stagedMain, 'utf-8');
+    // Inject inspector = false into the ReactLove.init({ ... }) call
+    if (mainContent.includes('ReactLove.init({')) {
+      mainContent = mainContent.replace(
+        'ReactLove.init({',
+        'ReactLove.init({\n    inspector = false,'
+      );
+      writeFileSync(stagedMain, mainContent);
+      console.log('  Inspector disabled for dist build (pass --debug to keep it)');
+    }
+  }
 
   // 3. Create .love archive
   console.log('  [3/6] Creating .love archive...');

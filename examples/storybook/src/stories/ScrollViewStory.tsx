@@ -22,7 +22,7 @@ export function ScrollViewStory() {
               justifyContent: 'center',
               paddingLeft: 8,
             }}>
-              <Text style={{ color: '#fff', fontSize: 11 }}>Item {i + 1}</Text>
+              <Text style={{ color: '#fff', fontSize: 11 }}>{`Item ${i + 1}`}</Text>
             </Box>
           ))}
         </ScrollView>

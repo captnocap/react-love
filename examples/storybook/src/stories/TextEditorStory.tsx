@@ -68,7 +68,7 @@ export function TextEditorStory() {
         <Box style={{ gap: 2 }}>
           <Text style={{ color: '#888', fontSize: 10 }}>Last blur value (first 80 chars):</Text>
           <Text style={{ color: '#a0a0b0', fontSize: 11 }}>
-            {lastBlurValue.slice(0, 80)}...
+            {`${lastBlurValue.slice(0, 80)}...`}
           </Text>
         </Box>
       )}
@@ -76,7 +76,7 @@ export function TextEditorStory() {
         <Box style={{ gap: 2 }}>
           <Text style={{ color: '#888', fontSize: 10 }}>Last submit value (first 80 chars):</Text>
           <Text style={{ color: '#22c55e', fontSize: 11 }}>
-            {lastSubmitValue.slice(0, 80)}...
+            {`${lastSubmitValue.slice(0, 80)}...`}
           </Text>
         </Box>
       )}

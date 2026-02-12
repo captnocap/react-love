@@ -34,7 +34,7 @@ export function BoxNestedStory() {
         gap: 8,
       }}>
         <Text style={{ color: '#888', fontSize: 11 }}>Parent (column)</Text>
-        <Box style={{ flexDirection: 'row', gap: 8 }}>
+        <Box style={{ flexDirection: 'row', gap: 8, width: '100%', justifyContent: 'space-between' }}>
           <Box style={{
             flexGrow: 1, height: 40,
             backgroundColor: '#e94560',

@@ -33,7 +33,7 @@ export function SelectStory() {
           placeholder="Pick a fruit..."
         />
         <Text style={{ color: '#64748b', fontSize: 12 }}>
-          Selected: {fruit ?? 'none'}
+          {`Selected: ${fruit ?? 'none'}`}
         </Text>
       </Box>
 

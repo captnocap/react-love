@@ -106,6 +106,20 @@ export function initEventDispatching(bridge: Subscribable): void {
   bridge.subscribe('dragend', (event: LoveEvent) => {
     dispatchWithBubbling(event, 'onDragEnd');
   });
+
+  // ── TextEditor events (Lua-owned, target-only) ────────
+
+  bridge.subscribe('texteditor:focus', (event: LoveEvent) => {
+    dispatchToTargetOnly(event, 'onTextEditorFocus');
+  });
+
+  bridge.subscribe('texteditor:blur', (event: LoveEvent) => {
+    dispatchToTargetOnly(event, 'onTextEditorBlur');
+  });
+
+  bridge.subscribe('texteditor:submit', (event: LoveEvent) => {
+    dispatchToTargetOnly(event, 'onTextEditorSubmit');
+  });
 }
 
 /**

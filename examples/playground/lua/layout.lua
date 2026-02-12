@@ -710,18 +710,28 @@ function Layout.layoutNode(node, px, py, pw, ph)
     local lineFreeMain = mainSize - lineUsedMain - lineGaps
     local lineMainOff, lineExtraGap = 0, 0
 
-    if justify == "center" then
-      lineMainOff = lineFreeMain / 2
-    elseif justify == "end" then
-      lineMainOff = lineFreeMain
-    elseif justify == "space-between" and lineCount > 1 then
-      lineExtraGap = lineFreeMain / (lineCount - 1)
-    elseif justify == "space-around" and lineCount > 0 then
-      lineExtraGap = lineFreeMain / lineCount
-      lineMainOff = lineExtraGap / 2
-    elseif justify == "space-evenly" and lineCount > 0 then
-      lineExtraGap = lineFreeMain / (lineCount + 1)
-      lineMainOff = lineExtraGap
+    -- Only apply justifyContent distribution when the main axis has a
+    -- definite size. For auto-sized containers (h == nil in column layout,
+    -- or explicitW == nil in row layout), centering/spacing is meaningless
+    -- because the container will shrink-wrap to its content. Without this
+    -- guard, the 9999 auto-height fallback produces enormous offsets that
+    -- push content off-screen.
+    local hasDefiniteMainAxis = isRow or (explicitH ~= nil)
+
+    if hasDefiniteMainAxis then
+      if justify == "center" then
+        lineMainOff = lineFreeMain / 2
+      elseif justify == "end" then
+        lineMainOff = lineFreeMain
+      elseif justify == "space-between" and lineCount > 1 then
+        lineExtraGap = lineFreeMain / (lineCount - 1)
+      elseif justify == "space-around" and lineCount > 0 then
+        lineExtraGap = lineFreeMain / lineCount
+        lineMainOff = lineExtraGap / 2
+      elseif justify == "space-evenly" and lineCount > 0 then
+        lineExtraGap = lineFreeMain / (lineCount + 1)
+        lineMainOff = lineExtraGap
+      end
     end
 
     -- ----------------------------------------------------------------

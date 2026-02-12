@@ -24,7 +24,7 @@ export function SwitchStory() {
           thumbColor="#ffffff"
         />
         <Text style={{ color: '#e2e8f0', fontSize: 13 }}>
-          Custom colors ({on2 ? 'ON' : 'OFF'})
+          {`Custom colors (${on2 ? 'ON' : 'OFF'})`}
         </Text>
       </Box>
 

@@ -57,7 +57,7 @@ function Gauge({ label, value, max = 100 }: { label: string; value: number; max?
 
   return (
     <Box style={{ marginBottom: 10 }}>
-      <Box style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 }}>
+      <Box style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3, width: '100%' }}>
         <Text style={{ color: TEXT_MID, fontSize: 10, fontWeight: '600' }}>{label}</Text>
         <Text style={{ color: TEXT_BRIGHT, fontSize: 10, fontWeight: '500' }}>
           {Math.round(value)}
@@ -173,7 +173,7 @@ function AlertFeed() {
           <Text style={{ color: levelColor(a.level), fontSize: 9 }}>
             {levelIcon(a.level)}
           </Text>
-          <Text style={{ color: TEXT_MID, fontSize: 9, flex: 1 }}>
+          <Text style={{ color: TEXT_MID, fontSize: 9, flexGrow: 1 }}>
             {a.text}
           </Text>
         </Box>
@@ -224,11 +224,11 @@ function SensorPanel() {
           <Text style={{ color: typeColor(obj.type, obj.threat), fontSize: 11 }}>
             {typeIcon(obj.type)}
           </Text>
-          <Text style={{ color: TEXT_MID, fontSize: 9, flex: 1 }}>
+          <Text style={{ color: TEXT_MID, fontSize: 9, flexGrow: 1 }}>
             {obj.name}
           </Text>
           <Text style={{ color: TEXT_DIM, fontSize: 9 }}>
-            {obj.distance.toFixed(0)}km
+            {`${obj.distance.toFixed(0)}km`}
           </Text>
         </Box>
       ))}
@@ -237,9 +237,9 @@ function SensorPanel() {
       )}
 
       <Box style={{ marginTop: 12, borderColor: PANEL_BORDER, borderWidth: 1, borderRadius: 3, padding: 8 }}>
-        <Box style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+        <Box style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
           <Text style={{ color: TEXT_DIM, fontSize: 8 }}>DRIFT</Text>
-          <Text style={{ color: TEXT_BRIGHT, fontSize: 9 }}>{speed.toFixed(2)}c</Text>
+          <Text style={{ color: TEXT_BRIGHT, fontSize: 9 }}>{`${speed.toFixed(2)}c`}</Text>
         </Box>
       </Box>
     </Panel>

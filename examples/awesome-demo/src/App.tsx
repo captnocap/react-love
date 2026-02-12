@@ -20,8 +20,8 @@ function Clock() {
   }, []);
 
   return (
-    <Box style={{ backgroundColor: '#285577', padding: 4, flexGrow: 1 }}>
-      <Text style={{ color: '#ffffff' }}>{time}</Text>
+    <Box style={{ backgroundColor: '#285577', padding: 4, width: '100%', height: '100%' }}>
+      <Text style={{ color: '#ffffff', fontSize: 12 }}>{time}</Text>
     </Box>
   );
 }
@@ -29,7 +29,7 @@ function Clock() {
 function Tag({ name, active }: { name: string; active?: boolean }) {
   return (
     <Box style={{ backgroundColor: active ? '#4c7899' : '#333333', padding: 4 }}>
-      <Text style={{ color: active ? '#ffffff' : '#888888' }}>{name}</Text>
+      <Text style={{ color: active ? '#ffffff' : '#888888', fontSize: 12 }}>{name}</Text>
     </Box>
   );
 }
@@ -41,11 +41,11 @@ export default function App() {
       <Tag name="2" />
       <Tag name="3" />
       <Box style={{ backgroundColor: '#333333', padding: 4, flexGrow: 1 }}>
-        <Text style={{ color: '#cccccc' }}>iLoveReact</Text>
+        <Text style={{ color: '#cccccc', fontSize: 12 }}>iLoveReact</Text>
       </Box>
       <Clock />
       <Box style={{ backgroundColor: '#333333', padding: 4 }}>
-        <Text style={{ color: '#aaaaaa' }}>Vol: 75%</Text>
+        <Text style={{ color: '#aaaaaa', fontSize: 12 }}>Vol: 75%</Text>
       </Box>
     </Box>
   );

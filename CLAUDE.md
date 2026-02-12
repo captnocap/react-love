@@ -155,6 +155,15 @@ The static linter (`cli/commands/lint.mjs`) catches these as build-blocking erro
 
 **Grid targets:** Use lowercase JSX intrinsics (`<view>`, `<text>`) and define local `Box`/`Text` wrappers.
 
+## Git Discipline (IMPORTANT)
+
+Commit early and often. This project has no test suite, so git history is the safety net. Follow these rules:
+
+- **Commit after every meaningful change** — finished a feature, fixed a bug, refactored something? Commit it before moving on. Don't batch unrelated changes into one mega-commit.
+- **Commit before risky operations** — about to refactor a core file, change the build pipeline, or touch Lua runtime code? Commit your current working state first so there's a clean rollback point.
+- **Use descriptive commit messages** — say what changed and why. `feat: add scroll support to grid layout engine` not `update stuff`.
+- **Don't let work pile up uncommitted** — if you've touched 3+ files, that's a commit. If you've been working for a while, that's a commit. The working tree should rarely have more than one logical change uncommitted.
+
 ## TypeScript
 
 - Target: ES2020, JSX: react-jsx (automatic), Module resolution: bundler

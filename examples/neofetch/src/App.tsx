@@ -72,7 +72,7 @@ function InfoLine({ label, value }: { label: string; value: string }) {
   return (
     <Box style={{ flexDirection: 'row', gap: 4 }}>
       <Box style={{ width: 70 }}>
-        <Text style={{ color: ACCENT, fontSize: 14, fontWeight: 'bold' }}>{label}:</Text>
+        <Text style={{ color: ACCENT, fontSize: 14, fontWeight: 'bold' }}>{`${label}:`}</Text>
       </Box>
       <Box style={{ flexGrow: 1 }}>
         <Text style={{ color: BRIGHT, fontSize: 14 }}>{value}</Text>
@@ -131,7 +131,7 @@ export default function App({ info, showFps }: { info: SystemInfo; showFps?: num
       </Box>
       {showFps !== undefined && (
         <Box style={{ paddingTop: 8, alignItems: 'end' }}>
-          <Text style={{ color: DIM, fontSize: 10 }}>{showFps} FPS — press Escape to quit</Text>
+          <Text style={{ color: DIM, fontSize: 10 }}>{`${showFps} FPS — press Escape to quit`}</Text>
         </Box>
       )}
     </Box>

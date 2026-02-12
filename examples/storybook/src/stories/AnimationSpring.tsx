@@ -38,10 +38,10 @@ export function AnimationSpringStory() {
         padding: 8, backgroundColor: '#1e293b', borderRadius: 4, gap: 2,
       }}>
         <Text style={{ color: '#888', fontSize: 10 }}>
-          translateX: {Math.round(x)}px
+          {`translateX: ${Math.round(x)}px`}
         </Text>
         <Text style={{ color: '#888', fontSize: 10 }}>
-          scale: {scale.toFixed(2)}
+          {`scale: ${scale.toFixed(2)}`}
         </Text>
       </Box>
     </Box>

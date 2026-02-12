@@ -15,7 +15,7 @@ import React from 'react';
 import type { ReactNode } from 'react';
 import { NativeBridge } from './NativeBridge';
 import { createRoot } from './NativeRenderer';
-import { BridgeProvider, RendererProvider } from '@ilovereact/core';
+import { BridgeProvider, RendererProvider } from '../../shared/src/context';
 
 export interface Love2DAppHandle {
   render(element: ReactNode): void;

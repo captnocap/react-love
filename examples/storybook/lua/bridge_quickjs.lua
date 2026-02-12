@@ -636,6 +636,28 @@ function Bridge:eval(code, filename)
   self.qjs.JS_FreeValue(self.ctx, val)
 end
 
+--- Evaluate JS code and return the result as a Lua value.
+--- Like eval() but converts the return value via jsValueToLua.
+function Bridge:evalReturn(code, filename)
+  filename = filename or "<eval>"
+  local val = self.qjs.JS_Eval(
+    self.ctx, code, #code, filename, JS_EVAL_TYPE_GLOBAL
+  )
+
+  if self.qjs.JS_IsException(val) ~= 0 then
+    local exc = self.qjs.JS_GetException(self.ctx)
+    local cstr = self.qjs.JS_ToCString(self.ctx, exc)
+    local msg = cstr ~= nil and ffi.string(cstr) or "unknown error"
+    if cstr ~= nil then self.qjs.JS_FreeCString(self.ctx, cstr) end
+    self.qjs.JS_FreeValue(self.ctx, exc)
+    error("[QuickJS] " .. msg)
+  end
+
+  local luaVal = jsValueToLua(self.ctx, self.qjs, val)
+  self.qjs.JS_FreeValue(self.ctx, val)
+  return luaVal
+end
+
 --- Call a global JS function by name, bypassing JS_Eval.
 --- This avoids whatever in JS_Eval prevents it from returning
 --- after a complex synchronous React render.

@@ -16,9 +16,11 @@
   Controls:
     F12   -- Toggle inspector on/off
     Tab   -- Toggle tree panel sidebar
+    `     -- Toggle console (requires console.lua)
 ]]
 
 local ZIndex = require("lua.zindex")
+local console = nil  -- lazy-loaded to avoid circular deps
 
 local Inspector = {}
 
@@ -30,6 +32,7 @@ local state = {
   enabled    = false,
   treePanel  = false,     -- sidebar visible?
   hoveredNode = nil,       -- node under cursor (deep hit test)
+  selectedNode = nil,      -- clicked/locked node for detail panel
   mouseX     = 0,
   mouseY     = 0,
   -- Performance
@@ -44,8 +47,12 @@ local state = {
   paintStart  = 0,
   -- Tree panel scroll
   treeScrollY = 0,
+  -- Detail panel scroll
+  detailScrollY = 0,
   -- Collapsed nodes in tree panel (id -> true)
   collapsed  = {},
+  -- Cached tree node positions for click detection
+  treeNodePositions = {},  -- array of { node, y, lineH }
 }
 
 -- ============================================================================
@@ -65,6 +72,7 @@ local TOOLTIP_ACCENT = { 0.38, 0.65, 0.98, 1 }
 
 local TREE_BG       = { 0.05, 0.05, 0.10, 0.88 }
 local TREE_HOVER    = { 0.20, 0.25, 0.40, 0.5 }
+local TREE_SELECT   = { 0.25, 0.35, 0.55, 0.6 }
 local TREE_TEXT     = { 0.78, 0.80, 0.84, 1 }
 local TREE_DIM      = { 0.45, 0.48, 0.55, 1 }
 local TREE_ACCENT   = { 0.38, 0.65, 0.98, 1 }
@@ -74,7 +82,10 @@ local PERF_TEXT     = { 0.78, 0.80, 0.84, 1 }
 local PERF_GOOD     = { 0.30, 0.80, 0.40, 1 }
 local PERF_WARN     = { 0.95, 0.75, 0.20, 1 }
 
+local DETAIL_BG     = { 0.05, 0.05, 0.10, 0.92 }
+
 local TREE_WIDTH = 280
+local DETAIL_WIDTH = 300
 
 -- ============================================================================
 -- Deep hit test (returns ANY node under cursor, not just hasHandlers)
@@ -195,6 +206,16 @@ function Inspector.endPaint()
   state.paintMs = (love.timer.getTime() - state.paintStart) * 1000
 end
 
+--- Return performance data (used by console :perf command)
+function Inspector.getPerfData()
+  return {
+    fps = state.fps,
+    layoutMs = state.layoutMs,
+    paintMs = state.paintMs,
+    nodeCount = state.nodeCount,
+  }
+end
+
 -- ============================================================================
 -- Public API: Update
 -- ============================================================================
@@ -222,17 +243,56 @@ function Inspector.keypressed(key)
     state.enabled = not state.enabled
     if not state.enabled then
       state.hoveredNode = nil
+      state.selectedNode = nil
       state.treePanel = false
+      -- Close console when inspector closes
+      if console and console.isVisible() then
+        console.hide()
+      end
     end
     return true
   end
 
   if not state.enabled then return false end
 
+  -- Console toggle (backtick)
+  if key == "`" then
+    if console then
+      console.toggle()
+    end
+    return true
+  end
+
+  -- Route to console first when it's open
+  if console and console.isVisible() then
+    return console.keypressed(key)
+  end
+
   if key == "tab" then
     state.treePanel = not state.treePanel
     state.treeScrollY = 0
     return true
+  end
+
+  -- Escape clears selection
+  if key == "escape" then
+    if state.selectedNode then
+      state.selectedNode = nil
+      state.detailScrollY = 0
+      return true
+    end
+  end
+
+  return false
+end
+
+--- Handle text input. Returns true if consumed.
+function Inspector.textinput(text)
+  if not state.enabled then return false end
+
+  -- Route to console
+  if console and console.isVisible() then
+    return console.textinput(text)
   end
 
   return false
@@ -242,9 +302,54 @@ end
 function Inspector.mousepressed(x, y, button)
   if not state.enabled then return false end
 
-  -- Tree panel click: toggle collapse
+  -- Console gets priority
+  if console and console.isVisible() then
+    -- Check if click is in console area
+    local screenH = love.graphics.getHeight()
+    local consoleH = math.max(200, math.floor(screenH * 0.4))
+    local consoleY = screenH - consoleH
+    if y >= consoleY then
+      return true  -- consumed by console
+    end
+  end
+
+  -- Detail panel click (right side)
+  if state.selectedNode then
+    local screenW = love.graphics.getWidth()
+    if x > screenW - DETAIL_WIDTH then
+      return true  -- consumed by detail panel
+    end
+  end
+
+  -- Tree panel click: select node or toggle collapse
   if state.treePanel and x < TREE_WIDTH then
-    return true  -- consumed by tree panel (scroll/interaction)
+    -- Find which node was clicked using cached positions
+    for _, entry in ipairs(state.treeNodePositions) do
+      if y >= entry.y and y < entry.y + entry.lineH then
+        if state.selectedNode == entry.node then
+          -- Click same node: deselect
+          state.selectedNode = nil
+          state.detailScrollY = 0
+        else
+          state.selectedNode = entry.node
+          state.detailScrollY = 0
+        end
+        return true
+      end
+    end
+    return true  -- consumed by tree panel even if no node hit
+  end
+
+  -- Clicking in viewport: select hovered node
+  if state.hoveredNode then
+    if state.selectedNode == state.hoveredNode then
+      state.selectedNode = nil
+      state.detailScrollY = 0
+    else
+      state.selectedNode = state.hoveredNode
+      state.detailScrollY = 0
+    end
+    return true
   end
 
   return false
@@ -256,9 +361,24 @@ function Inspector.mousemoved(x, y)
   state.mouseY = y
 end
 
---- Handle mouse wheel (scroll tree panel).
+--- Handle mouse wheel (scroll tree panel or detail panel).
 function Inspector.wheelmoved(x, y)
   if not state.enabled then return false end
+
+  -- Console scroll
+  if console and console.isVisible() then
+    return console.wheelmoved(x, y)
+  end
+
+  -- Detail panel scroll
+  if state.selectedNode then
+    local screenW = love.graphics.getWidth()
+    if state.mouseX > screenW - DETAIL_WIDTH then
+      state.detailScrollY = state.detailScrollY - y * 20
+      if state.detailScrollY < 0 then state.detailScrollY = 0 end
+      return true
+    end
+  end
 
   if state.treePanel and state.mouseX < TREE_WIDTH then
     state.treeScrollY = state.treeScrollY - y * 20
@@ -270,6 +390,15 @@ function Inspector.wheelmoved(x, y)
 end
 
 -- ============================================================================
+-- Console integration
+-- ============================================================================
+
+--- Set the console module reference (called from init.lua after console is loaded)
+function Inspector.setConsole(consoleModule)
+  console = consoleModule
+end
+
+-- ============================================================================
 -- Public API: Draw
 -- ============================================================================
 
@@ -278,7 +407,7 @@ function Inspector.draw(root)
   if not root then return end
 
   local ok, drawErr = pcall(function()
-    -- Update hovered node via deep hit test
+    -- Update hovered node via deep hit test (skip if console is covering that area)
     state.hoveredNode = deepHitTest(root, state.mouseX, state.mouseY)
     state.nodeCount = countNodes(root)
 
@@ -287,18 +416,28 @@ function Inspector.draw(root)
     love.graphics.origin()
     love.graphics.setScissor()
 
-    -- 1. Draw hover overlay
+    -- 1. Draw hover overlay (show selected node highlight if one is locked)
     drawHoverOverlay()
 
-    -- 2. Draw tooltip
-    drawTooltip()
+    -- 2. Draw selected node highlight
+    drawSelectedOverlay()
 
-    -- 3. Draw tree panel
+    -- 3. Draw tooltip (only when no node is selected, to reduce clutter)
+    if not state.selectedNode then
+      drawTooltip()
+    end
+
+    -- 4. Draw tree panel
     if state.treePanel then
       drawTreePanel(root)
     end
 
-    -- 4. Draw performance bar (always on top)
+    -- 5. Draw detail panel (when node is selected)
+    if state.selectedNode then
+      drawDetailPanel()
+    end
+
+    -- 6. Draw performance bar (always on top)
     drawPerfBar()
 
     -- Restore graphics state
@@ -311,6 +450,11 @@ function Inspector.draw(root)
       io.flush()
     end)
   end
+
+  -- Draw console on top of inspector (but before errors)
+  if console then
+    console.draw()
+  end
 end
 
 -- ============================================================================
@@ -320,6 +464,8 @@ end
 function drawHoverOverlay()
   local node = state.hoveredNode
   if not node or not node.computed then return end
+  -- Don't draw hover overlay if this node is already selected
+  if node == state.selectedNode then return end
 
   local s = node.style or {}
   local c = node.computed
@@ -371,6 +517,26 @@ function drawHoverOverlay()
   love.graphics.setColor(BORDER_COLOR)
   love.graphics.setLineWidth(1)
   love.graphics.rectangle("line", c.x, c.y, c.w, c.h)
+end
+
+-- ============================================================================
+-- Drawing: Selected node overlay (brighter/thicker outline)
+-- ============================================================================
+
+function drawSelectedOverlay()
+  local node = state.selectedNode
+  if not node or not node.computed then return end
+
+  local c = node.computed
+
+  -- Solid bright outline for selected node
+  love.graphics.setColor(TOOLTIP_ACCENT[1], TOOLTIP_ACCENT[2], TOOLTIP_ACCENT[3], 0.8)
+  love.graphics.setLineWidth(2)
+  love.graphics.rectangle("line", c.x, c.y, c.w, c.h)
+
+  -- Light fill
+  love.graphics.setColor(TOOLTIP_ACCENT[1], TOOLTIP_ACCENT[2], TOOLTIP_ACCENT[3], 0.08)
+  love.graphics.rectangle("fill", c.x, c.y, c.w, c.h)
 end
 
 -- ============================================================================
@@ -478,6 +644,9 @@ function drawTreePanel(root)
   local lineH = font:getHeight() + 4
   local pad = 8
 
+  -- Reset position cache
+  state.treeNodePositions = {}
+
   -- Background
   love.graphics.setColor(TREE_BG)
   love.graphics.rectangle("fill", 0, 0, TREE_WIDTH, screenH)
@@ -509,9 +678,19 @@ function drawTreeNode(node, depth, y, font, lineH, pad, clipTop, clipBottom)
   local visible = y + lineH > clipTop and y < clipBottom
   local c = node.computed
 
+  -- Cache position for click detection
+  state.treeNodePositions[#state.treeNodePositions + 1] = {
+    node = node,
+    y = y,
+    lineH = lineH,
+  }
+
   if visible then
-    -- Highlight hovered node
-    if node == state.hoveredNode then
+    -- Highlight selected node
+    if node == state.selectedNode then
+      love.graphics.setColor(TREE_SELECT)
+      love.graphics.rectangle("fill", 0, y, TREE_WIDTH, lineH)
+    elseif node == state.hoveredNode then
       love.graphics.setColor(TREE_HOVER)
       love.graphics.rectangle("fill", 0, y, TREE_WIDTH, lineH)
     end
@@ -534,9 +713,15 @@ function drawTreeNode(node, depth, y, font, lineH, pad, clipTop, clipBottom)
       love.graphics.print(isCollapsed and ">" or "v", indent - 10, y + 1)
     end
 
-    -- Type name in accent, dimensions in dim
+    -- Type name in accent if selected, normal otherwise
     love.graphics.setFont(font)
-    love.graphics.setColor(node == state.hoveredNode and TOOLTIP_ACCENT or TREE_TEXT)
+    if node == state.selectedNode then
+      love.graphics.setColor(TOOLTIP_ACCENT)
+    elseif node == state.hoveredNode then
+      love.graphics.setColor(TOOLTIP_ACCENT)
+    else
+      love.graphics.setColor(TREE_TEXT)
+    end
     love.graphics.print(label, indent, y + 1)
   end
 
@@ -550,6 +735,133 @@ function drawTreeNode(node, depth, y, font, lineH, pad, clipTop, clipBottom)
   end
 
   return y
+end
+
+-- ============================================================================
+-- Drawing: Detail panel (right side, shows full props/style of selected node)
+-- ============================================================================
+
+function drawDetailPanel()
+  local node = state.selectedNode
+  if not node then return end
+
+  local screenW = love.graphics.getWidth()
+  local screenH = love.graphics.getHeight()
+  local panelX = screenW - DETAIL_WIDTH
+  local font = love.graphics.newFont(11)
+  local lineH = font:getHeight() + 2
+  local pad = 10
+
+  -- Background
+  love.graphics.setColor(DETAIL_BG)
+  love.graphics.rectangle("fill", panelX, 0, DETAIL_WIDTH, screenH)
+
+  -- Border
+  love.graphics.setColor(TOOLTIP_BORDER)
+  love.graphics.rectangle("fill", panelX, 0, 1, screenH)
+
+  -- Scissor to panel
+  love.graphics.setScissor(panelX, 0, DETAIL_WIDTH, screenH)
+  love.graphics.setFont(font)
+
+  local x = panelX + pad
+  local y = pad - state.detailScrollY
+
+  -- Header
+  local header = (node.type or "?") .. "  #" .. tostring(node.id or "?")
+  love.graphics.setColor(TOOLTIP_ACCENT)
+  love.graphics.print(header, x, y)
+  y = y + lineH + 4
+
+  -- Computed layout
+  local c = node.computed
+  if c then
+    love.graphics.setColor(TREE_DIM)
+    love.graphics.print("-- layout --", x, y)
+    y = y + lineH
+    love.graphics.setColor(TOOLTIP_TEXT)
+    love.graphics.print(string.format("x: %d", math.floor(c.x)), x, y); y = y + lineH
+    love.graphics.print(string.format("y: %d", math.floor(c.y)), x, y); y = y + lineH
+    love.graphics.print(string.format("w: %d", math.floor(c.w)), x, y); y = y + lineH
+    love.graphics.print(string.format("h: %d", math.floor(c.h)), x, y); y = y + lineH
+    y = y + 4
+  end
+
+  -- Props (excluding style)
+  if node.props then
+    local hasProps = false
+    for k, v in pairs(node.props) do
+      if k ~= "style" then
+        if not hasProps then
+          love.graphics.setColor(TREE_DIM)
+          love.graphics.print("-- props --", x, y)
+          y = y + lineH
+          hasProps = true
+        end
+        love.graphics.setColor(TOOLTIP_TEXT)
+        local val = fmtVal(v)
+        love.graphics.print(k .. ": " .. val, x, y)
+        y = y + lineH
+      end
+    end
+    if hasProps then y = y + 4 end
+  end
+
+  -- Style (full dump, no truncation)
+  local s = node.style
+  if s then
+    local hasStyle = false
+    for k, v in pairs(s) do
+      if v ~= nil and v ~= "" then
+        if not hasStyle then
+          love.graphics.setColor(TREE_DIM)
+          love.graphics.print("-- style --", x, y)
+          y = y + lineH
+          hasStyle = true
+        end
+        love.graphics.setColor(TOOLTIP_TEXT)
+        love.graphics.print(k .. ": " .. fmtVal(v), x, y)
+        y = y + lineH
+      end
+    end
+    if hasStyle then y = y + 4 end
+  end
+
+  -- Children summary
+  local nc = node.children and #node.children or 0
+  if nc > 0 then
+    love.graphics.setColor(TREE_DIM)
+    love.graphics.print("-- children: " .. nc .. " --", x, y)
+    y = y + lineH
+    for i, child in ipairs(node.children) do
+      if i > 20 then
+        love.graphics.setColor(TREE_DIM)
+        love.graphics.print("... +" .. (nc - 20) .. " more", x, y)
+        y = y + lineH
+        break
+      end
+      local cc = child.computed
+      local dims = cc and string.format("%dx%d", math.floor(cc.w), math.floor(cc.h)) or "?"
+      love.graphics.setColor(TOOLTIP_TEXT)
+      love.graphics.print(string.format("[%d] %s #%s  %s", i, child.type or "?", tostring(child.id), dims), x, y)
+      y = y + lineH
+    end
+  end
+
+  -- Handlers
+  if node.hasHandlers then
+    y = y + 4
+    love.graphics.setColor(PERF_GOOD)
+    love.graphics.print("has event handlers", x, y)
+    y = y + lineH
+  end
+
+  -- Hint
+  y = y + 8
+  love.graphics.setColor(TREE_DIM)
+  love.graphics.print("Esc to deselect", x, y)
+
+  love.graphics.setScissor()
 end
 
 -- ============================================================================
@@ -585,6 +897,11 @@ function drawPerfBar()
   -- Offset if tree panel is visible
   if state.treePanel then
     barX = math.max(TREE_WIDTH + pad, barX)
+  end
+
+  -- Offset if detail panel is visible
+  if state.selectedNode then
+    barX = math.min(barX, screenW - DETAIL_WIDTH - totalW - pad)
   end
 
   -- Background

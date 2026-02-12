@@ -19,16 +19,16 @@ function Clock() {
 
   return (
     <Box style={{ backgroundColor: '#3366CC', padding: 1 }}>
-      <Text style={{ color: 'white' }}>{time}</Text>
+      <Text style={{ color: 'white', fontSize: 12 }}>{time}</Text>
     </Box>
   );
 }
 
 function StatusCard({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <Box style={{ backgroundColor: color, padding: 1, flexGrow: 1 }}>
-      <Text style={{ color: 'white' }}>{label}</Text>
-      <Text style={{ color: 'yellow' }}>{value}</Text>
+    <Box style={{ backgroundColor: color, padding: 1, width: '100%', height: '100%' }}>
+      <Text style={{ color: 'white', fontSize: 12 }}>{label}</Text>
+      <Text style={{ color: 'yellow', fontSize: 12 }}>{value}</Text>
     </Box>
   );
 }
@@ -47,7 +47,7 @@ export default function App() {
     <Box style={{ width: '100%', height: '100%', backgroundColor: 'black', flexDirection: 'column', gap: 1 }}>
       {/* Header */}
       <Box style={{ backgroundColor: '#7F664C', padding: 1 }}>
-        <Text style={{ color: 'white' }}>iLoveReact CC Demo</Text>
+        <Text style={{ color: 'white', fontSize: 12 }}>iLoveReact CC Demo</Text>
       </Box>
 
       {/* Clock */}
@@ -62,7 +62,7 @@ export default function App() {
 
       {/* Footer */}
       <Box style={{ backgroundColor: '#4C4C4C', padding: 1 }}>
-        <Text style={{ color: 'lightGray' }}>React in Minecraft!</Text>
+        <Text style={{ color: 'lightGray', fontSize: 12 }}>React in Minecraft!</Text>
       </Box>
     </Box>
   );

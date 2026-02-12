@@ -19,8 +19,8 @@ export function StatusBar({ messages, onJumpToLine }: StatusBarProps) {
           <Text style={{ color: '#a6e3a1', fontSize: 11 }}>0 errors, 0 warnings</Text>
         ) : (
           <>
-            {ec > 0 && <Text style={{ color: '#f38ba8', fontSize: 11 }}>{ec} error{ec !== 1 ? 's' : ''}</Text>}
-            {wc > 0 && <Text style={{ color: '#f9e2af', fontSize: 11 }}>{wc} warning{wc !== 1 ? 's' : ''}</Text>}
+            {ec > 0 && <Text style={{ color: '#f38ba8', fontSize: 11 }}>{`${ec} error${ec !== 1 ? 's' : ''}`}</Text>}
+            {wc > 0 && <Text style={{ color: '#f9e2af', fontSize: 11 }}>{`${wc} warning${wc !== 1 ? 's' : ''}`}</Text>}
           </>
         )}
       </Box>
@@ -28,13 +28,13 @@ export function StatusBar({ messages, onJumpToLine }: StatusBarProps) {
         <Box style={{ paddingBottom: 4 }}>
           {messages.slice(0, 5).map((msg, i) => (
             <Pressable key={i} onPress={() => onJumpToLine?.(msg.line)} style={{ flexDirection: 'row', paddingLeft: 12, paddingRight: 12, paddingTop: 2, paddingBottom: 2, gap: 8 }}>
-              <Text style={{ color: msg.severity === 'error' ? '#f38ba8' : '#f9e2af', fontSize: 10, width: 40 }}>L{msg.line}</Text>
-              <Text style={{ color: '#a6adc8', fontSize: 10 }}>{msg.message}</Text>
+              <Text style={{ color: msg.severity === 'error' ? '#f38ba8' : '#f9e2af', fontSize: 10, width: 40 }}>{`L${msg.line}`}</Text>
+              <Text style={{ color: '#a6adc8', fontSize: 10 }}>{`${msg.message}`}</Text>
             </Pressable>
           ))}
           {messages.length > 5 && (
             <Box style={{ paddingLeft: 12, paddingTop: 2 }}>
-              <Text style={{ color: '#585b70', fontSize: 10 }}>+{messages.length - 5} more</Text>
+              <Text style={{ color: '#585b70', fontSize: 10 }}>{`+${messages.length - 5} more`}</Text>
             </Box>
           )}
         </Box>

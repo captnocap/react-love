@@ -97,7 +97,8 @@ const LintTest: React.FC = () => {
   }) => (
     <Box
       style={{
-        flexGrow: 1,
+        width: '100%',
+        height: '100%',
         backgroundColor: 'rgba(255, 255, 255, 0.05)',
         padding: 16,
         borderRadius: 8,
@@ -113,10 +114,10 @@ const LintTest: React.FC = () => {
       </Text>
       <Box style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
         <Text style={{ fontSize: 16, color: '#FCA5A5', fontWeight: '600' }}>
-          {high}°
+          {`${high}°`}
         </Text>
         <Text style={{ fontSize: 16, color: '#93C5FD', fontWeight: '600' }}>
-          {low}°
+          {`${low}°`}
         </Text>
       </Box>
     </Box>
@@ -125,14 +126,15 @@ const LintTest: React.FC = () => {
   return (
     <Box
       style={{
-        flexGrow: 1,
-        background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%)',
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(30, 27, 75, 1)',
         padding: 24,
         gap: 24,
       }}
     >
       {/* Main content area */}
-      <Box style={{ flexDirection: 'row', gap: 24, flexGrow: 1 }}>
+      <Box style={{ flexDirection: 'row', gap: 24, flexGrow: 1, width: '100%' }}>
         {/* Left section - Current weather */}
         <Box
           style={{

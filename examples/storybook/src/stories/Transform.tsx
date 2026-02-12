@@ -31,7 +31,7 @@ export function TransformStory() {
             transform: { scaleX: s, scaleY: s },
             justifyContent: 'center', alignItems: 'center',
           }}>
-            <Text style={{ color: '#fff', fontSize: 10 }}>{s}x</Text>
+            <Text style={{ color: '#fff', fontSize: 10 }}>{`${s}x`}</Text>
           </Box>
         ))}
       </Box>

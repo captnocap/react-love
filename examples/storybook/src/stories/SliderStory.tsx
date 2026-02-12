@@ -16,7 +16,7 @@ export function SliderStory() {
           activeTrackColor="#3b82f6"
         />
         <Text style={{ color: '#e2e8f0', fontSize: 12 }}>
-          Value: {value1.toFixed(2)}
+          {`Value: ${value1.toFixed(2)}`}
         </Text>
       </Box>
 
@@ -33,7 +33,7 @@ export function SliderStory() {
           thumbColor="#22c55e"
         />
         <Text style={{ color: '#e2e8f0', fontSize: 12 }}>
-          Value: {value2}
+          {`Value: ${value2}`}
         </Text>
       </Box>
 

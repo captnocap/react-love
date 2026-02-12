@@ -83,6 +83,8 @@ export interface Style {
     rotate?: number; // degrees
     scaleX?: number;
     scaleY?: number;
+    skewX?: number; // degrees
+    skewY?: number; // degrees
     originX?: number; // 0-1, default 0.5 (center)
     originY?: number; // 0-1, default 0.5 (center)
   };
@@ -107,6 +109,56 @@ export interface Style {
   bottom?: number | string;
   left?: number | string;
   right?: number | string;
+
+  // Visibility (hidden but occupies space, unlike display:'none')
+  visibility?: 'visible' | 'hidden';
+
+  // Per-corner border radius
+  borderTopLeftRadius?: number;
+  borderTopRightRadius?: number;
+  borderBottomLeftRadius?: number;
+  borderBottomRightRadius?: number;
+
+  // Per-side border colors
+  borderTopColor?: Color;
+  borderRightColor?: Color;
+  borderBottomColor?: Color;
+  borderLeftColor?: Color;
+
+  // Text shadow
+  textShadowColor?: Color;
+  textShadowOffsetX?: number;
+  textShadowOffsetY?: number;
+
+  // Outline
+  outlineColor?: Color;
+  outlineWidth?: number;
+  outlineOffset?: number;
+
+  // CSS Transitions (Lua-side: JS declares targets, Lua interpolates)
+  // Per-property: transition: { backgroundColor: { duration: 300, easing: 'easeInOut' } }
+  // Or all props:  transition: { all: { duration: 300 } }
+  transition?: {
+    [key: string]: {
+      duration?: number;    // milliseconds (default 300)
+      easing?: string;      // 'linear' | 'easeIn' | 'easeOut' | 'easeInOut' | 'bounce' | 'elastic'
+      delay?: number;       // milliseconds (default 0)
+    };
+  };
+
+  // CSS Keyframe Animations (Lua-side)
+  animation?: {
+    keyframes: {
+      [percentage: number]: Partial<Style>;
+    };
+    duration?: number;          // milliseconds (default 300)
+    easing?: string;            // easing function name (default 'linear')
+    iterations?: number;        // -1 = infinite (default 1)
+    direction?: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse';
+    fillMode?: 'none' | 'forwards' | 'backwards' | 'both';
+    delay?: number;             // milliseconds (default 0)
+    playState?: 'running' | 'paused';
+  };
 }
 
 export interface LoveEvent {
@@ -146,6 +198,8 @@ export interface LoveEvent {
 
 export interface BoxProps {
   style?: Style;
+  hoverStyle?: Style;
+  activeStyle?: Style;
   onClick?: (event: LoveEvent) => void;
   onRelease?: (event: LoveEvent) => void;
   onPointerEnter?: (event: LoveEvent) => void;
@@ -270,4 +324,30 @@ export interface FlatListProps<T> {
 export interface FlatListRef {
   scrollToIndex(params: { index: number; animated?: boolean }): void;
   scrollToOffset(params: { offset: number; animated?: boolean }): void;
+}
+
+export interface TextEditorProps {
+  /** Initial text content (used on first render). */
+  initialValue?: string;
+  /** Controlled value — updates the editor text when changed. */
+  value?: string;
+  /** Called on blur/submit with the final text value. */
+  onChangeText?: (text: string) => void;
+  /** Called on Ctrl+Enter with the current text value. */
+  onSubmit?: (text: string) => void;
+  /** Called when the editor gains focus. */
+  onFocus?: () => void;
+  /** Called when the editor loses focus, with the final text value. */
+  onBlur?: (text: string) => void;
+  /** Placeholder text shown when empty and unfocused. */
+  placeholder?: string;
+  /** Whether the editor is read-only. */
+  readOnly?: boolean;
+  /** Whether to show line numbers in the gutter (default: true). */
+  lineNumbers?: boolean;
+  /** Container style (sizing, layout). */
+  style?: Style;
+  /** Text style (fontSize, color, fontFamily). */
+  textStyle?: Style;
+  key?: string | number;
 }

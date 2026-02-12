@@ -18,7 +18,7 @@ export function RadioStory() {
           <Radio value="grape" label="Grape" />
         </RadioGroup>
         <Text style={{ color: '#64748b', fontSize: 12 }}>
-          Selected: {fruit}
+          {`Selected: ${fruit}`}
         </Text>
       </Box>
 

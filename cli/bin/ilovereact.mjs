@@ -16,13 +16,19 @@ const HELP = `
   Usage:
     ilovereact init <name>           Create a new iLoveReact project
     ilovereact dev                    Run esbuild in watch mode (HMR)
-    ilovereact build                  Bundle JS for dev (love . workflow)
-    ilovereact build dist:love        Single-file Love2D executable
-    ilovereact build dist:terminal    Single-file terminal executable
+    ilovereact build [--no-update]    Bundle JS for dev (love . workflow)
+    ilovereact build dist:love [--no-update] [--debug]
+                                      Single-file Love2D executable
+    ilovereact build dist:terminal [--no-update]
+                                      Single-file terminal executable
     ilovereact update                 Sync runtime files (lua/, lib/, ilovereact/)
     ilovereact lint                   Check src/ for layout mistakes
     ilovereact screenshot [--output]  Lint + build + headless screenshot
     ilovereact help                   Show this help message
+
+  Flags:
+    --no-update                       Skip auto-updating runtime files
+    --debug                           Enable inspector in dist:love builds
 `;
 
 switch (command) {

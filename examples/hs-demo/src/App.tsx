@@ -21,19 +21,19 @@ function Clock() {
 
   return (
     <Box style={{ backgroundColor: '#1a1a2e', padding: 10 }}>
-      <Text style={{ color: '#e0e0e0' }}>{time}</Text>
+      <Text style={{ color: '#e0e0e0', fontSize: 14 }}>{time}</Text>
     </Box>
   );
 }
 
 function Meter({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <Box style={{ flexDirection: 'column', flexGrow: 1, padding: 8 }}>
-      <Text style={{ color: '#aaaaaa' }}>{label}</Text>
+    <Box style={{ flexDirection: 'column', width: '100%', height: '100%', padding: 8 }}>
+      <Text style={{ color: '#aaaaaa', fontSize: 14 }}>{label}</Text>
       <Box style={{ height: 20, backgroundColor: '#333333' }}>
         <Box style={{ width: `${value}%`, height: 20, backgroundColor: color }} />
       </Box>
-      <Text style={{ color: '#ffffff' }}>{value}%</Text>
+      <Text style={{ color: '#ffffff', fontSize: 14 }}>{`${value}%`}</Text>
     </Box>
   );
 }
@@ -42,7 +42,7 @@ export default function App() {
   return (
     <Box style={{ width: '100%', height: '100%', backgroundColor: '#0f0f23', flexDirection: 'column' }}>
       <Box style={{ backgroundColor: '#16213e', padding: 12 }}>
-        <Text style={{ color: '#ffffff' }}>iLoveReact Desktop Widget</Text>
+        <Text style={{ color: '#ffffff', fontSize: 14 }}>iLoveReact Desktop Widget</Text>
       </Box>
       <Clock />
       <Box style={{ flexDirection: 'row', gap: 4 }}>

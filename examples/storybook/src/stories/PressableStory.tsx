@@ -58,10 +58,10 @@ export function PressableStory() {
       {/* Status */}
       <Box style={{ padding: 8, backgroundColor: '#1e293b', borderRadius: 4, gap: 4 }}>
         <Text style={{ color: '#888', fontSize: 11 }}>
-          Press count: {pressCount}
+          {`Press count: ${pressCount}`}
         </Text>
         <Text style={{ color: '#888', fontSize: 11 }}>
-          Last action: {lastAction}
+          {`Last action: ${lastAction}`}
         </Text>
       </Box>
     </Box>
