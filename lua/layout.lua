@@ -313,29 +313,50 @@ local function estimateIntrinsicMain(node, isRow, pw, ph)
   local direction = s.flexDirection or "column"
   local containerIsRow = (direction == "row")
 
-  -- 4. Sum (main axis) or max (cross axis) children
+  -- 4. Sum (main axis) or max (cross axis) children, skipping hidden nodes
+  local visibleCount = 0
+
   if (isRow and containerIsRow) or (not isRow and not containerIsRow) then
     -- Main axis: sum children + gaps
     local sum = 0
     for _, child in ipairs(children) do
       local cs = child.style or {}
-      local explicitMain = isRow and ru(cs.width, pw) or ru(cs.height, ph)
+      if cs.display ~= "none" then
+        visibleCount = visibleCount + 1
 
-      if explicitMain then
-        sum = sum + explicitMain
-      else
-        -- Recursive: measure child's intrinsic size
-        sum = sum + estimateIntrinsicMain(child, isRow, pw, ph)
+        -- Account for child margins along measurement axis
+        local cmar = ru(cs.margin, isRow and pw or ph) or 0
+        local marStart = isRow and (ru(cs.marginLeft, pw) or cmar)
+                                or (ru(cs.marginTop, ph) or cmar)
+        local marEnd = isRow and (ru(cs.marginRight, pw) or cmar)
+                              or (ru(cs.marginBottom, ph) or cmar)
+
+        local explicitMain = isRow and ru(cs.width, pw) or ru(cs.height, ph)
+        if explicitMain then
+          sum = sum + explicitMain + marStart + marEnd
+        else
+          sum = sum + estimateIntrinsicMain(child, isRow, pw, ph) + marStart + marEnd
+        end
       end
     end
-    local totalGaps = math.max(0, #children - 1) * gap
+    local totalGaps = math.max(0, visibleCount - 1) * gap
     return padMain + sum + totalGaps
   else
     -- Cross axis: take max of children
     local max = 0
     for _, child in ipairs(children) do
-      local size = estimateIntrinsicMain(child, isRow, pw, ph)
-      if size > max then max = size end
+      local cs = child.style or {}
+      if cs.display ~= "none" then
+        -- Account for child margins along measurement axis
+        local cmar = ru(cs.margin, isRow and pw or ph) or 0
+        local marStart = isRow and (ru(cs.marginLeft, pw) or cmar)
+                                or (ru(cs.marginTop, ph) or cmar)
+        local marEnd = isRow and (ru(cs.marginRight, pw) or cmar)
+                              or (ru(cs.marginBottom, ph) or cmar)
+
+        local size = estimateIntrinsicMain(child, isRow, pw, ph) + marStart + marEnd
+        if size > max then max = size end
+      end
     end
     return padMain + max
   end
@@ -543,6 +564,19 @@ function Layout.layoutNode(node, px, py, pw, ph)
         if mw and mh then
           if not cw then cw = mw + cpadL + cpadR end
           if not ch then ch = mh + cpadT + cpadB end
+        end
+      end
+
+      -- For container children without explicit dimensions, estimate
+      -- intrinsic size from their content (recursive bottom-up measurement).
+      -- This is what lets <Box> inside <Row> auto-size from its children
+      -- instead of collapsing to zero — same as a browser <div>.
+      if not childIsText and (not cw or not ch) then
+        if not cw then
+          cw = estimateIntrinsicMain(child, true, innerW, innerH)
+        end
+        if not ch then
+          ch = estimateIntrinsicMain(child, false, innerW, innerH)
         end
       end
 
