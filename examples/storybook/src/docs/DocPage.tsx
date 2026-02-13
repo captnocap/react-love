@@ -39,7 +39,7 @@ function SectionHeader({ title }: { title: string }) {
 
 function ContentText({ text }: { text: string }) {
   return (
-    <Text style={{ color: '#94a3b8', fontSize: 11, lineHeight: 1.6 }}>
+    <Text style={{ color: '#94a3b8', fontSize: 11, lineHeight: 18 }}>
       {text}
     </Text>
   );
@@ -142,7 +142,7 @@ export function DocPage({ content }: { content: ParsedContentLike }) {
             <Box key={i} style={{ flexDirection: 'row', marginBottom: 4 }}>
               <Text style={{ color: '#f59e0b', fontSize: 10 }}>{`\u2022 `}</Text>
               <Box style={{ flexShrink: 1 }}>
-                <Text style={{ color: '#94a3b8', fontSize: 10, lineHeight: 1.5 }}>{rule}</Text>
+                <Text style={{ color: '#94a3b8', fontSize: 10, lineHeight: 16 }}>{rule}</Text>
               </Box>
             </Box>
           ))}

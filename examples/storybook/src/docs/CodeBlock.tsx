@@ -15,7 +15,7 @@ export function CodeBlock({ code }: { code: string }) {
         color: '#c9d1d9',
         fontSize: 10,
         fontFamily: 'monospace',
-        lineHeight: 1.5,
+        lineHeight: 16,
       }}>
         {code}
       </Text>
