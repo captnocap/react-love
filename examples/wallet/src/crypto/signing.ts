@@ -1,5 +1,5 @@
-import { keccak_256 } from '@noble/hashes/sha3';
-import { secp256k1 } from '@noble/secp256k1';
+import { keccak_256 } from '@noble/hashes/sha3.js';
+import { sign as secp256k1Sign } from '@noble/secp256k1';
 import { bytesToHex, hexToBytes } from './keys';
 
 // EIP-1559 (Type 2) transaction
@@ -100,7 +100,7 @@ export function signTransaction(tx: Transaction, privateKey: Uint8Array): string
   const unsigned = serializeUnsignedTx(tx);
   const msgHash = keccak_256(unsigned);
 
-  const sig = secp256k1.sign(msgHash, privateKey);
+  const sig = secp256k1Sign(msgHash, privateKey);
   const r = bigintToBytes(sig.r);
   const s = bigintToBytes(sig.s);
   const v = sig.recovery;

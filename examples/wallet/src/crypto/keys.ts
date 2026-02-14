@@ -1,8 +1,8 @@
 import { generateMnemonic as genMnemonic, mnemonicToSeedSync, validateMnemonic } from '@scure/bip39';
-import { wordlist } from '@scure/bip39/wordlists/english';
+import { wordlist } from '@scure/bip39/wordlists/english.js';
 import { HDKey } from '@scure/bip32';
-import { keccak_256 } from '@noble/hashes/sha3';
-import { secp256k1 } from '@noble/secp256k1';
+import { keccak_256 } from '@noble/hashes/sha3.js';
+import { getPublicKey } from '@noble/secp256k1';
 
 // BIP-44 path for Ethereum: m/44'/60'/0'/0/{index}
 const ETH_PATH = "m/44'/60'/0'/0";
@@ -33,7 +33,7 @@ export function deriveAccount(seed: Uint8Array, index: number = 0): Account {
   if (!child.privateKey) throw new Error('Failed to derive private key');
 
   const privateKey = child.privateKey;
-  const publicKey = secp256k1.getPublicKey(privateKey, false); // uncompressed
+  const publicKey = getPublicKey(privateKey, false); // uncompressed
   const address = publicKeyToAddress(publicKey);
 
   return { privateKey, publicKey, address, index };

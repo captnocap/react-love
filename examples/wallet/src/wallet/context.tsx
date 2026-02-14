@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
+import { useBridge, type IBridge } from '@ilovereact/core';
 import { generateMnemonic, isValidMnemonic, mnemonicToSeed, deriveAccount } from '../crypto/keys';
 import { encryptKeystore, decryptKeystore, type EncryptedKeystore } from '../crypto/keystore';
 import { signTransaction, type Transaction } from '../crypto/signing';
@@ -6,24 +7,19 @@ import { getBalance, getNonce, getGasPrice, getMaxPriorityFee, estimateGas, send
 import { chains, type NetworkId } from '../network/chains';
 import type { WalletState, Screen, SendParams } from './types';
 
-// ── Storage helpers (Love2D filesystem via console.log protocol) ──
+// ── Storage helpers (Love2D RPC to storage.lua) ──
 
-function saveKeystore(store: EncryptedKeystore) {
-  // Use the CLIPBOARD protocol trick: we log a special prefix that the
-  // bridge intercepts. But for file storage, we use fetch to local path.
-  // Love2D's save directory is accessible via love.filesystem.
-  // We'll use __hostFlush to send a storage command.
-  (globalThis as any).__hostFlush(JSON.stringify([{
-    type: 'storage:set',
-    payload: { collection: 'wallet', id: 'keystore', data: JSON.stringify(store), format: 'json' }
-  }]));
+function storageSet(bridge: IBridge, collection: string, id: string, data: any) {
+  bridge.rpc('storage:set', { collection, id, data: JSON.stringify(data), format: 'json' }).catch(() => {});
 }
 
-function saveSettings(settings: { network: NetworkId; useTor: boolean }) {
-  (globalThis as any).__hostFlush(JSON.stringify([{
-    type: 'storage:set',
-    payload: { collection: 'wallet', id: 'settings', data: JSON.stringify(settings), format: 'json' }
-  }]));
+async function storageGet<T>(bridge: IBridge, collection: string, id: string): Promise<T | null> {
+  try {
+    const result = await bridge.rpc<string>('storage:get', { collection, id, format: 'json' });
+    return result ? JSON.parse(result) : null;
+  } catch {
+    return null;
+  }
 }
 
 // ── Reducer ─────────────────────────────────────────────
@@ -131,27 +127,27 @@ export function useWallet() {
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const stateRef = useRef(state);
+  const bridge = useBridge();
+  const bridgeRef = useRef(bridge);
   stateRef.current = state;
+  bridgeRef.current = bridge;
 
   // Check for existing keystore on mount
   useEffect(() => {
-    // Try to load keystore via fetch to local path
-    fetch('save/wallet/keystore.json').then(res => {
-      if (res.ok) {
+    storageGet<EncryptedKeystore>(bridge, 'wallet', 'keystore').then(store => {
+      if (store) {
         dispatch({ type: 'SET_HAS_KEYSTORE', has: true });
         dispatch({ type: 'SET_SCREEN', screen: 'unlock' });
       }
-    }).catch(() => {});
+    });
 
-    // Load settings
-    fetch('save/wallet/settings.json').then(async res => {
-      if (res.ok) {
-        const settings = await res.json();
+    storageGet<{ network: NetworkId; useTor: boolean }>(bridge, 'wallet', 'settings').then(settings => {
+      if (settings) {
         if (settings.network) dispatch({ type: 'SET_NETWORK', network: settings.network });
         if (settings.useTor !== undefined) dispatch({ type: 'SET_USE_TOR', useTor: settings.useTor });
       }
-    }).catch(() => {});
-  }, []);
+    });
+  }, [bridge]);
 
   // Auto-refresh balance every 30s when unlocked
   useEffect(() => {
@@ -203,7 +199,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
       try {
         const store = encryptKeystore(s.mnemonic, password);
-        saveKeystore(store);
+        storageSet(bridgeRef.current, 'wallet', 'keystore', store);
         dispatch({ type: 'SET_HAS_KEYSTORE', has: true });
 
         // Derive key and unlock
@@ -216,9 +212,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     }, []),
 
     unlock: useCallback((password: string) => {
-      fetch('save/wallet/keystore.json').then(async res => {
-        if (!res.ok) throw new Error('No keystore found');
-        const store = await res.json();
+      storageGet<EncryptedKeystore>(bridgeRef.current, 'wallet', 'keystore').then(store => {
+        if (!store) {
+          dispatch({ type: 'SET_ERROR', error: 'No keystore found' });
+          return;
+        }
         try {
           const mnemonic = decryptKeystore(store, password);
           const seed = mnemonicToSeed(mnemonic);
@@ -248,14 +246,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     switchNetwork: useCallback((network: NetworkId) => {
       dispatch({ type: 'SET_NETWORK', network });
       const s = stateRef.current;
-      saveSettings({ network, useTor: s.useTor });
+      storageSet(bridgeRef.current, 'wallet', 'settings', { network, useTor: s.useTor });
     }, []),
 
     toggleTor: useCallback(() => {
       const s = stateRef.current;
       const newVal = !s.useTor;
       dispatch({ type: 'SET_USE_TOR', useTor: newVal });
-      saveSettings({ network: s.network, useTor: newVal });
+      storageSet(bridgeRef.current, 'wallet', 'settings', { network: s.network, useTor: newVal });
     }, []),
 
     send: useCallback(async (params: SendParams) => {

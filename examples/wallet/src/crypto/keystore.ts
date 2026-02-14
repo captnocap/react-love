@@ -1,6 +1,6 @@
-import { scrypt } from '@noble/hashes/scrypt';
-import { gcm } from '@noble/ciphers/aes';
-import { randomBytes } from '@noble/hashes/utils';
+import { scrypt } from '@noble/hashes/scrypt.js';
+import { gcm } from '@noble/ciphers/aes.js';
+import { randomBytes } from '@noble/hashes/utils.js';
 
 export interface EncryptedKeystore {
   version: 1;
