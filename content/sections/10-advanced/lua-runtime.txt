@@ -1,14 +1,14 @@
 === METADATA ===
 title: Lua Runtime Internals
-description: Complete inventory of all 19 Lua modules that power the Love2D target
+description: Complete inventory of all 27 Lua modules that power the Love2D target
 category: Advanced
 platforms: love2d
-keywords: lua, runtime, modules, init, layout, painter, tree, events, bridge, measure, animate
-related: pipeline, layout-engine, painter, event-handling
+keywords: lua, runtime, modules, init, layout, painter, tree, events, bridge, measure, animate, http, networking, tor, json
+related: pipeline, layout-engine, painter, event-handling, networking, tor
 difficulty: advanced
 
 === OVERVIEW ===
-The Lua runtime consists of 19 modules that collectively implement the rendering
+The Lua runtime consists of 27 modules that collectively implement the rendering
 pipeline for the Love2D target. The entry point is init.lua, which detects the
 operating mode, loads the appropriate bridge, and initializes all submodules. On every
 frame, the runtime ticks the JavaScript engine, drains mutation commands, advances
@@ -87,6 +87,38 @@ Module Inventory:
   target_love2d.lua  - Love2D target configuration. Contains target-specific
                        constants and setup.
 
+  http.lua           - Async HTTP client. Supports GET/POST/PUT/DELETE with headers,
+                       proxy (HTTP/SOCKS5), and concurrent request pooling via
+                       love.thread. Bridges to LuaSocket socket.http library.
+
+  network.lua        - WebSocket network manager. Manages multiple concurrent
+                       WebSocket connections with auto-reconnect, backoff,
+                       and SOCKS5 proxy support (for Tor tunneling).
+
+  websocket.lua      - Pure Lua WebSocket client (vendored from flaribbit/love2d-
+                       lua-websocket). Implements RFC 6455 frame encoding/decoding.
+                       Low-level; use network.lua for high-level connection management.
+
+  json.lua           - JSON encoder/decoder. Used internally to serialize/deserialize
+                       mutation commands between JS and Lua. Handles objects, arrays,
+                       strings, numbers, booleans, null.
+
+  socks5.lua         - SOCKS5 proxy client (RFC 1928 + RFC 1929). Establishes TCP
+                       tunnels through SOCKS5 proxies with no-auth and username/
+                       password auth. Used by http.lua and network.lua for Tor support.
+
+  tor.lua            - Tor subprocess manager. Auto-starts Tor, creates hidden
+                       services, polls for bootstrap completion, graceful shutdown.
+                       Opt-in via config.tor in ReactLove.init().
+
+  codeblock.lua      - Syntax-highlighted code block renderer. Direct love.graphics
+                       rendering (like texteditor.lua). Highlights keywords, imports,
+                       strings, numbers, comments.
+
+  textselection.lua  - Text selection and clipboard copy for Text nodes. Manages
+                       global selection state, drag-to-select, multi-line extraction,
+                       Ctrl+C / Cmd+C copy support.
+
 === EXAMPLES ===
 Example 1: Module Loading Order (Native Mode)
 ---
@@ -125,3 +157,6 @@ Platforms: love2d
 - 02-architecture/painter.txt - painter.lua deep dive
 - event-handling.txt - events.lua deep dive
 - debugging.txt - inspector.lua, console.lua, errors.lua
+- networking.txt - http.lua, network.lua, websocket.lua, json.lua, socks5.lua
+- tor.txt - tor.lua, Tor hidden service integration
+- rendering.txt - codeblock.lua and textselection.lua for UI features

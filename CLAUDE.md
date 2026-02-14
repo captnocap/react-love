@@ -9,6 +9,10 @@ If text wraps, it's because you gave it nowhere to go.
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Model Selection
+
+**Always use Opus 4.6 (`claude-opus-4-6`) for debugging.** Sonnet is fine for scaffolding, writing new components, and routine tasks. But when tracking down layout bugs, inspector issues, coordinate mismatches, or anything where the real problem is structural and not obvious — use Opus. It finds the actual bug instead of proposing workarounds that mask it.
+
 ## What This Is
 
 iLoveReact is a multi-target React rendering framework. Write React components once, render them on Love2D, terminals, Neovim, ComputerCraft, Hammerspoon, AwesomeWM, or web browsers.
@@ -23,21 +27,26 @@ placement, and produces correct distribution packages. Running raw esbuild comma
 directly will use wrong flags, skip linting, and produce broken builds.
 
 ```bash
-ilovereact init <name>            # Scaffold new Love2D project (do NOT mkdir + copy manually)
-ilovereact dev                    # Watch mode with HMR (do NOT run esbuild --watch manually)
-ilovereact build                  # Lint gate + bundle (do NOT run esbuild manually)
-ilovereact build dist:love        # Self-extracting Linux binary
-ilovereact build dist:terminal    # Single-file Node.js executable
+ilovereact init <name>            # Scaffold new project (do NOT mkdir + copy manually)
+ilovereact dev [target]           # Watch mode (default: love). Do NOT run esbuild --watch manually.
+ilovereact build [target]         # Lint gate + dev build (default: love). Do NOT run esbuild manually.
+ilovereact build dist:<target>    # Production build for any target
 ilovereact lint                   # Static layout linter — run after ANY component change
 ilovereact screenshot [--output]  # Headless capture — verify layouts visually
 ```
 
+**Targets:** `love`, `terminal`, `cc`, `nvim`, `hs`, `awesome`, `web`
+
+**Dist formats:**
+- `dist:love` — Self-extracting Linux binary (Love2D + bundled glibc)
+- `dist:terminal` / `dist:cc` / `dist:nvim` / `dist:hs` / `dist:awesome` — Single-file Node.js executable (shebang + CJS)
+- `dist:web` — Production ESM bundle
+
 **After writing or modifying any component:** run `ilovereact lint`, then
 `ilovereact screenshot --output /tmp/preview.png` and inspect the result.
 
-The CLI currently covers Love2D scaffolding/builds and terminal distribution. For grid
-target dev builds (terminal, CC, Neovim, Hammerspoon, AwesomeWM), use the npm scripts
-in root package.json — these are the only cases where direct esbuild is appropriate.
+The CLI handles all targets. The npm scripts in root package.json are for monorepo
+development convenience only — never use raw esbuild commands for project builds.
 
 ## Source-of-Truth Architecture (CRITICAL)
 
@@ -95,16 +104,14 @@ These are unique to each project and are NOT managed by the CLI:
 ```bash
 npm install                       # Install dependencies
 
-# Grid target builds (not yet covered by CLI)
-npm run build:terminal-demo       # Terminal demo → examples/terminal-demo/dist/main.js
-npm run build:storybook-native    # Love2D storybook → examples/storybook/love/bundle.js
-npm run watch:storybook-native    # Watch mode for storybook
-
 # QuickJS setup (needed for Love2D target)
 make setup                        # Clones quickjs-ng, builds libquickjs.so
 make build                        # Builds all targets
 make dist-storybook               # Self-extracting Linux binary with bundled glibc
 ```
+
+The root package.json still has `npm run build:*` scripts for monorepo example builds,
+but prefer `cd examples/<project> && ilovereact build <target>` for consistency.
 
 ## Monorepo Structure
 
@@ -129,10 +136,13 @@ npm workspaces monorepo. Path aliases (`@ilovereact/*`) defined in `tsconfig.bas
 
 ## esbuild Formats by Target
 
+These are encoded in `cli/targets.mjs` — you should never need to specify them manually:
+
 - **Love2D**: `--format=iife --global-name=ReactLove` (runs inside QuickJS)
 - **Grid targets** (terminal, nvim, cc, hs, awesome): `--platform=node --format=esm`
 - **Web**: `--format=esm`
-- WebSocket targets additionally need `--external:ws`
+- WebSocket targets (cc, hs) additionally need `--external:ws`
+- **Dist builds** (grid): `--format=cjs --platform=node --external:ws` + shebang
 
 ## Critical Layout Rules
 
@@ -148,6 +158,51 @@ These cause the most bugs:
 8. **Use `█` (U+2588) as a grid blueprint, never in `<Text>`** — the block character renders as a font glyph in Text, not a filled pixel. Convert it to a boolean grid and render colored `<Box>` elements with `backgroundColor` instead (see NeofetchDemo pattern). The linter enforces this via `no-block-char-in-text`.
 
 The static linter (`cli/commands/lint.mjs`) catches these as build-blocking errors. Escape hatch: `// ilr-ignore-next-line`.
+
+## Auto-Sizing (Content-Based Layout)
+
+Containers automatically size to fit their content when dimensions are not specified:
+
+**How it works:**
+- Bottom-up measurement: deepest children measure first, dimensions propagate upward
+- Text nodes measure themselves using font metrics
+- Container nodes sum (main axis) or max (cross axis) their children
+- Padding, margins, and gaps are added at each level
+
+**Column containers** (default `flexDirection: "column"`):
+- Width: max of children's widths + padding
+- Height: sum of children's heights + gaps + padding
+
+**Row containers** (`flexDirection: "row"`):
+- Width: sum of children's widths + gaps + padding
+- Height: max of children's heights + padding
+
+**Example** (no explicit sizing needed):
+```jsx
+<Box>
+  <Text fontSize={16}>Title</Text>
+  <Text fontSize={14}>Subtitle</Text>
+</Box>
+```
+Container auto-sizes to fit both text elements with proper stacking.
+
+**When to use explicit sizing:**
+- Root containers (use `width: '100%', height: '100%'` to fill viewport)
+- Containers with percentage-sized children (percentages need explicit parent)
+- Performance-critical layouts (10+ direct children)
+- When you need precise control over alignment/distribution
+
+**When to use auto-sizing:**
+- Cards, badges, buttons (size to content)
+- Text labels, headings, captions
+- Icon containers
+- Nested layout components
+
+**Limitations:**
+- Percentage-based children in auto-sized parents resolve to 0
+- `aspectRatio` requires at least one explicit dimension
+- ScrollView containers need explicit height for scrolling
+- Deep nesting (6+ levels) may impact performance (use explicit sizing at key levels)
 
 ## Primitives by Target
 

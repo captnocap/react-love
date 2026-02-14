@@ -418,7 +418,7 @@ export function Text(props: TextProps) {
       ...styleToCSS(resolvedStyle),
       display: 'inline',
       flexDirection: undefined,
-      userSelect: 'none',
+      userSelect: resolvedStyle?.userSelect === 'none' ? 'none' : undefined,
     };
 
     if (resolvedLines !== undefined) {

@@ -15,6 +15,8 @@
  *   no-implicit-container-sizing (warning) >5 children without explicit container size
  *   no-link-without-to          (error)   <Link> missing "to" prop
  *   no-routes-without-fallback  (warning) <Routes> without path="*" catch-all
+ *   no-image-without-src        (error)   <Image> missing "src" prop
+ *   no-pressable-without-onpress (warning) <Pressable> without onPress handler
  *   no-usecrud-without-schema   (error)   useCRUD() called without a schema argument
  */
 
@@ -27,6 +29,8 @@ import { createRequire } from 'node:module';
 const CONTAINER_TAGS = new Set(['Box', 'view', 'FlexRow', 'FlexColumn']);
 const TEXT_TAGS = new Set(['Text']); // Only uppercase — grid targets use <text> which doesn't need fontSize
 const ROUTER_TAGS = new Set(['Link', 'Route', 'Routes']);
+const IMAGE_TAGS = new Set(['Image', 'image']);
+const INTERACTIVE_TAGS = new Set(['Pressable']);
 
 // ── Color helpers ────────────────────────────────────────────
 
@@ -227,8 +231,8 @@ function buildContexts(sourceFile, filePath, ts) {
         _attrs: null,
       };
 
-      // Extract JSX attributes for router components (Link, Route, etc.)
-      if (ROUTER_TAGS.has(tagName)) {
+      // Extract JSX attributes for all iLoveReact primitives (needed for shorthand prop checks)
+      if (CONTAINER_TAGS.has(tagName) || TEXT_TAGS.has(tagName) || ROUTER_TAGS.has(tagName) || IMAGE_TAGS.has(tagName) || INTERACTIVE_TAGS.has(tagName)) {
         ctx._attrs = extractJsxAttrs(opening, ts);
       }
 
@@ -262,22 +266,34 @@ function buildContexts(sourceFile, filePath, ts) {
       // - Reset to 1 if this container has a direct child with explicit main-axis sizing
       //   (sibling establishes the sizing context for all children)
       // - Otherwise increment
-      const hasExplicitSize = style && style.analyzable
+      const hasExplicitSizeFromStyle = style && style.analyzable
         && style.props.has('width') && style.props.has('height');
+      const hasExplicitSizeFromShorthand = ctx._attrs
+        && (ctx._attrs.has('fill') || (ctx._attrs.has('w') && ctx._attrs.has('h')));
+      const hasExplicitSize = hasExplicitSizeFromStyle || hasExplicitSizeFromShorthand;
 
       let hasAnchoredChild = false;
       if (CONTAINER_TAGS.has(tagName) && !hasExplicitSize) {
         const isRow = (style && style.analyzable && style.flexDirection === 'row')
+          || (ctx._attrs && ctx._attrs.get('direction') === 'row')
           || tagName === 'FlexRow';
         const mainProp = isRow ? 'width' : 'height';
+        const mainShorthand = isRow ? 'w' : 'h';
         for (const child of node.children) {
           let cs = null;
+          let childAttrs = null;
           if (ts.isJsxElement(child)) {
             cs = extractStyleInfo(child.openingElement, ts);
+            childAttrs = extractJsxAttrs(child.openingElement, ts);
           } else if (ts.isJsxSelfClosingElement(child)) {
             cs = extractStyleInfo(child, ts);
+            childAttrs = extractJsxAttrs(child, ts);
           }
           if (cs && cs.analyzable && cs.props.has(mainProp)) {
+            hasAnchoredChild = true;
+            break;
+          }
+          if (childAttrs && (childAttrs.has(mainShorthand) || childAttrs.has('fill'))) {
             hasAnchoredChild = true;
             break;
           }
@@ -321,8 +337,8 @@ function buildContexts(sourceFile, filePath, ts) {
         _attrs: null,
       };
 
-      // Extract JSX attributes for router components
-      if (ROUTER_TAGS.has(tagName)) {
+      // Extract JSX attributes for all iLoveReact primitives (needed for shorthand prop checks)
+      if (CONTAINER_TAGS.has(tagName) || TEXT_TAGS.has(tagName) || ROUTER_TAGS.has(tagName) || IMAGE_TAGS.has(tagName) || INTERACTIVE_TAGS.has(tagName)) {
         ctx._attrs = extractJsxAttrs(node, ts);
       }
 
@@ -416,9 +432,12 @@ const rules = [
     check(ctx) {
       if (!TEXT_TAGS.has(ctx.tagName)) return null;
 
+      // Accept shorthand `size` prop on the element: <Text size={14}>
+      if (ctx._attrs && ctx._attrs.has('size')) return null;
+
       // No style attribute at all
       if (!ctx.style) {
-        return 'Text element has no style attribute — fontSize is required for Love2D/Web targets';
+        return 'Text element has no style attribute — fontSize (or size shorthand) is required for Love2D/Web targets';
       }
 
       // Style is a variable — can't verify, skip
@@ -430,7 +449,7 @@ const rules = [
       // Has fontSize — OK
       if (ctx.style.props.has('fontSize')) return null;
 
-      return 'Text element missing fontSize in style — required for text measurement on Love2D/Web';
+      return 'Text element missing fontSize in style (or size shorthand) — required for text measurement on Love2D/Web';
     },
   },
 
@@ -463,25 +482,40 @@ const rules = [
     },
   },
 
-  // Row containers NEED explicit width for justifyContent to work.
-  // Without it, the layout engine has no definite main axis and justifyContent is ignored.
+  // Row containers with justifyContent may need explicit width for predictable alignment
   {
     name: 'no-row-justify-without-width',
-    severity: 'error',
+    severity: 'warning',
     check(ctx) {
       if (!CONTAINER_TAGS.has(ctx.tagName)) return null;
-      if (!ctx.style || !ctx.style.analyzable) return null;
-      if (ctx.style.hasSpread) return null;
 
-      const isRow = ctx.style.flexDirection === 'row' || ctx.tagName === 'FlexRow';
+      const attrs = ctx._attrs;
+
+      // Determine if this is a row (style.flexDirection or direction shorthand)
+      const isRowFromStyle = ctx.style && ctx.style.analyzable && ctx.style.flexDirection === 'row';
+      const isRowFromShorthand = attrs && (attrs.get('direction') === 'row');
+      const isRow = isRowFromStyle || isRowFromShorthand || ctx.tagName === 'FlexRow';
       if (!isRow) return null;
-      if (!ctx.style.props.has('justifyContent')) return null;
-      if (ctx.style.props.has('width')) return null;
+
+      // Check for justifyContent in style or justify shorthand
+      const hasJustifyInStyle = ctx.style && ctx.style.analyzable && ctx.style.props.has('justifyContent');
+      const hasJustifyShorthand = attrs && attrs.has('justify');
+      if (!hasJustifyInStyle && !hasJustifyShorthand) return null;
+
+      // Check for width in style or w shorthand or fill shorthand
+      const hasWidthInStyle = ctx.style && ctx.style.analyzable && ctx.style.props.has('width');
+      const hasWidthShorthand = attrs && (attrs.has('w') || attrs.has('fill'));
+      if (hasWidthInStyle || hasWidthShorthand) return null;
+
+      // Style has spread — width might be in the spread, skip
+      if (ctx.style && ctx.style.analyzable && ctx.style.hasSpread) return null;
 
       // "start" is the default — it doesn't distribute space, so no width needed
-      if (ctx.style.justifyContent === 'start' || ctx.style.justifyContent === 'flex-start') return null;
+      const justifyValue = (ctx.style && ctx.style.analyzable && ctx.style.justifyContent)
+        || (attrs && typeof attrs.get('justify') === 'string' && attrs.get('justify'));
+      if (justifyValue === 'start' || justifyValue === 'flex-start') return null;
 
-      return "Row with justifyContent but no width — justifyContent is ignored without an explicit width (e.g. width: '100%'). Box nodes have no intrinsic width, so the layout engine cannot distribute space along the main axis";
+      return "Row with justifyContent may need explicit width for predictable alignment (auto-sizing uses content width)";
     },
   },
 
@@ -505,8 +539,10 @@ const rules = [
     name: 'no-uncontexted-flexgrow',
     severity: 'warning',
     check(ctx) {
-      if (!ctx.style || !ctx.style.analyzable) return null;
-      if (!ctx.style.props.has('flexGrow')) return null;
+      // Check for flexGrow in style or grow shorthand
+      const hasGrowInStyle = ctx.style && ctx.style.analyzable && ctx.style.props.has('flexGrow');
+      const hasGrowShorthand = ctx._attrs && ctx._attrs.has('grow');
+      if (!hasGrowInStyle && !hasGrowShorthand) return null;
 
       // Need a parent with multiple direct children for sibling analysis
       if (!ctx.parent || ctx.parent.directChildren.length < 2) return null;
@@ -517,55 +553,51 @@ const rules = [
         parentDir = 'row';
       } else if (ctx.parent.style && ctx.parent.style.analyzable && ctx.parent.style.flexDirection) {
         parentDir = ctx.parent.style.flexDirection;
+      } else if (ctx.parent._attrs && ctx.parent._attrs.get('direction') === 'row') {
+        parentDir = 'row';
       }
 
       const mainProp = parentDir === 'row' ? 'width' : 'height';
+      const mainShorthand = parentDir === 'row' ? 'w' : 'h';
       const siblings = ctx.parent.directChildren.filter((s) => s !== ctx);
 
+      // Helper: does a node have explicit main-axis size (style or shorthand)?
+      function hasMainSize(node) {
+        if (node.style && node.style.analyzable && node.style.props.has(mainProp)) return true;
+        if (node._attrs && (node._attrs.has(mainShorthand) || node._attrs.has('fill'))) return true;
+        return false;
+      }
+
+      // Helper: does a node use flexGrow (style or shorthand)?
+      function hasGrow(node) {
+        if (node.style && node.style.analyzable && node.style.props.has('flexGrow')) return true;
+        if (node._attrs && node._attrs.has('grow')) return true;
+        return false;
+      }
+
       // Case 1: ALL siblings also grow and NONE have explicit main-axis size
-      // (all-grow-no-size = layout depends entirely on content measurement)
       const analyzableSibs = siblings.filter(
-        (s) => s.style && s.style.analyzable && !s.style.hasSpread,
+        (s) => (s.style && s.style.analyzable && !s.style.hasSpread) || s._attrs,
       );
       if (analyzableSibs.length > 0) {
-        const allGrow = analyzableSibs.every((s) => s.style.props.has('flexGrow'));
-        const noneHaveSize = analyzableSibs.every((s) => !s.style.props.has(mainProp));
-        const selfLacksSize = !ctx.style.props.has(mainProp);
+        const allGrow = analyzableSibs.every((s) => hasGrow(s));
+        const noneHaveSize = analyzableSibs.every((s) => !hasMainSize(s));
+        const selfLacksSize = !hasMainSize(ctx);
 
         if (allGrow && noneHaveSize && selfLacksSize) {
-          return `All ${ctx.parent.directChildren.length} siblings use flexGrow without explicit ${mainProp} — layout will depend on content measurement which is unreliable. Add ${mainProp} or use justifyContent on the parent`;
+          return `All ${ctx.parent.directChildren.length} siblings use flexGrow without explicit ${mainProp} — layout will depend on content measurement which is unreliable. Add ${mainProp} (or ${mainShorthand} shorthand) or use justifyContent on the parent`;
         }
       }
 
       // Case 2: Some siblings don't grow and lack explicit sizing
       for (const sib of siblings) {
-        // Skip siblings that also grow
-        if (sib.style && sib.style.analyzable && sib.style.props.has('flexGrow')) continue;
-        // Skip unanalyzable siblings (styled via variable)
-        if (!sib.style || !sib.style.analyzable || sib.style.hasSpread) continue;
-
-        if (!sib.style.props.has(mainProp)) {
-          return `flexGrow used but sibling at line ${sib.line} lacks explicit ${mainProp} — in a ${parentDir} container, non-growing siblings need ${mainProp} for predictable layout`;
+        if (hasGrow(sib)) continue;
+        if (!sib.style || !sib.style.analyzable || sib.style.hasSpread) {
+          if (!sib._attrs) continue; // Can't analyze
         }
-      }
-
-      return null;
-    },
-  },
-
-  // Root container should use width/height '100%', not flexGrow
-  {
-    name: 'no-flexgrow-root',
-    severity: 'error',
-    check(ctx) {
-      if (!CONTAINER_TAGS.has(ctx.tagName)) return null;
-      // Only check top-level returned elements (no JSX parent)
-      if (ctx.parent) return null;
-      if (!ctx.style || !ctx.style.analyzable) return null;
-
-      // Has flexGrow but no width/height — classic mistake
-      if (ctx.style.props.has('flexGrow') && !ctx.style.props.has('width') && !ctx.style.props.has('height')) {
-        return "Root container uses flexGrow without width/height — use width: '100%', height: '100%' instead. flexGrow on the root has no parent to grow into";
+        if (!hasMainSize(sib)) {
+          return `flexGrow used but sibling at line ${sib.line} lacks explicit ${mainProp} — in a ${parentDir} container, non-growing siblings need ${mainProp} (or ${mainShorthand} shorthand) for predictable layout`;
+        }
       }
 
       return null;
@@ -609,6 +641,7 @@ const rules = [
         // Text
         'color', 'fontSize', 'fontFamily', 'fontWeight', 'textAlign',
         'textOverflow', 'textDecorationLine', 'lineHeight', 'letterSpacing',
+        'userSelect',
         // Text shadow
         'textShadowColor', 'textShadowOffsetX', 'textShadowOffsetY',
         // Image
@@ -641,13 +674,18 @@ const rules = [
     severity: 'warning',
     check(ctx) {
       if (!CONTAINER_TAGS.has(ctx.tagName)) return null;
-      if (ctx.flexDepth < 4) return null;
+      if (ctx.flexDepth < 6) return null;
 
-      // Has explicit dimensions — OK
+      // Has explicit dimensions via style — OK
       if (ctx.style && ctx.style.analyzable) {
         if (ctx.style.props.has('width') && ctx.style.props.has('height')) return null;
-        // Spread might contain dimensions
         if (ctx.style.hasSpread) return null;
+      }
+
+      // Has explicit dimensions via shorthand (w+h or fill) — OK
+      if (ctx._attrs) {
+        if (ctx._attrs.has('fill')) return null;
+        if (ctx._attrs.has('w') && ctx._attrs.has('h')) return null;
       }
 
       return `Flex container nested ${ctx.flexDepth} levels deep without explicit width and height — may produce unexpected layout`;
@@ -661,14 +699,20 @@ const rules = [
     severity: 'warning',
     check(ctx) {
       if (!CONTAINER_TAGS.has(ctx.tagName)) return null;
-      if (ctx.directChildren.length <= 5) return null;
+      if (ctx.directChildren.length <= 10) return null;
       // Outermost element fills its parent naturally
       if (!ctx.parent) return null;
 
-      // Has explicit dimensions — OK
+      // Has explicit dimensions via style — OK
       if (ctx.style && ctx.style.analyzable) {
         if (ctx.style.props.has('width') && ctx.style.props.has('height')) return null;
         if (ctx.style.hasSpread) return null;
+      }
+
+      // Has explicit dimensions via shorthand (w+h or fill) — OK
+      if (ctx._attrs) {
+        if (ctx._attrs.has('fill')) return null;
+        if (ctx._attrs.has('w') && ctx._attrs.has('h')) return null;
       }
 
       return `Container with ${ctx.directChildren.length} direct children has no explicit width/height — add explicit dimensions for deterministic layout`;
@@ -705,6 +749,34 @@ const rules = [
         return '<Routes> has no <Route path="*"> fallback — unmatched URLs will render nothing. Add a catch-all route for 404 handling';
       }
       return null;
+    },
+  },
+
+  // ── Image rules ───────────────────────────────────────────────
+
+  // <Image> without a `src` prop renders nothing
+  {
+    name: 'no-image-without-src',
+    severity: 'error',
+    check(ctx) {
+      if (!IMAGE_TAGS.has(ctx.tagName)) return null;
+      if (!ctx._attrs) return null;
+      if (ctx._attrs.has('src')) return null;
+      return '<Image> is missing the "src" prop — it must specify an image source (e.g. <Image src="path/to/image.png" />)';
+    },
+  },
+
+  // ── Interactive element rules ─────────────────────────────────
+
+  // <Pressable> without onPress creates a clickable element that does nothing
+  {
+    name: 'no-pressable-without-onpress',
+    severity: 'warning',
+    check(ctx) {
+      if (!INTERACTIVE_TAGS.has(ctx.tagName)) return null;
+      if (!ctx._attrs) return null;
+      if (ctx._attrs.has('onPress')) return null;
+      return '<Pressable> has no "onPress" handler — it creates an interactive element that does nothing when clicked. Add an onPress prop or use a Box instead';
     },
   },
 

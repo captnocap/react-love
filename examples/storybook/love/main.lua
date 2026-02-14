@@ -20,6 +20,10 @@ function love.load()
       mode = "native",
       bundlePath = "bundle.js",
       libpath = "lib/libquickjs",
+      tor = {
+        autoStart = true,
+        hsPort = 8080,
+      },
     })
   end)
   if ok then

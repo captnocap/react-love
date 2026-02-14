@@ -24,6 +24,7 @@
 ]]
 
 local Measure = nil  -- Injected at init time via Layout.init()
+local CodeBlockModule = nil  -- Lazy-loaded for CodeBlock measurement
 
 local Layout = {}
 
@@ -250,12 +251,20 @@ end
 --- Determine the effective cross-axis alignment for a child.
 --- Uses child's alignSelf if set (and not "auto"), else falls back to
 --- the parent's alignItems value.
+--- Normalize CSS flex alignment values to simple keywords.
+--- "flex-start" → "start", "flex-end" → "end", etc.
+local function normalizeAlign(val)
+  if val == "flex-start" then return "start" end
+  if val == "flex-end" then return "end" end
+  return val
+end
+
 local function effectiveAlign(parentAlign, childStyle)
   local selfAlign = childStyle and childStyle.alignSelf
   if selfAlign and selfAlign ~= "auto" then
-    return selfAlign
+    return normalizeAlign(selfAlign)
   end
-  return parentAlign
+  return normalizeAlign(parentAlign)
 end
 
 -- ============================================================================
@@ -443,10 +452,12 @@ function Layout.layoutNode(node, px, py, pw, ph)
   local padT = ru(s.paddingTop, h)    or pad
   local padB = ru(s.paddingBottom, h) or pad
 
-  -- For text nodes without explicit dimensions, measure intrinsic size.
+  -- For text nodes and code blocks without explicit dimensions, measure intrinsic size.
   -- Use inner width (after padding) as the wrap constraint so the text
   -- wraps correctly inside the padding box.
   local isTextNode = (node.type == "Text" or node.type == "__TEXT__")
+  local isCodeBlock = (node.type == "CodeBlock")
+
   if isTextNode then
     if not explicitW or not explicitH then
       -- The wrap constraint is the inner width (outer minus padding)
@@ -470,6 +481,19 @@ function Layout.layoutNode(node, px, py, pw, ph)
           -- Node height = measured text height + padding
           h = mh + padT + padB
         end
+      end
+    end
+  elseif isCodeBlock then
+    -- Measure CodeBlock via codeblock.lua
+    -- Width: always fill available space (from parent stretch/pw).
+    -- Height: auto-size to content if not explicit.
+    if not explicitH then
+      if not CodeBlockModule then
+        CodeBlockModule = require("lua.codeblock")
+      end
+      local measured = CodeBlockModule.measure(node)
+      if measured then
+        h = measured.height
       end
     end
   end
@@ -507,7 +531,7 @@ function Layout.layoutNode(node, px, py, pw, ph)
   -- Flex properties
   local isRow   = s.flexDirection == "row"
   local gap     = ru(s.gap, isRow and innerW or innerH) or 0
-  local justify = s.justifyContent or "start"
+  local justify = normalizeAlign(s.justifyContent or "start")
   local align   = s.alignItems or "stretch"
   local wrap    = s.flexWrap == "wrap"
 
@@ -571,11 +595,21 @@ function Layout.layoutNode(node, px, py, pw, ph)
       -- intrinsic size from their content (recursive bottom-up measurement).
       -- This is what lets <Box> inside <Row> auto-size from its children
       -- instead of collapsing to zero — same as a browser <div>.
+      -- Exception: scroll containers should NOT auto-size to content height,
+      -- as they are meant to constrain their viewport and scroll overflow.
+      local childIsScroll = cs.overflow == "scroll"
       if not childIsText and (not cw or not ch) then
-        if not cw then
+        -- Don't estimate intrinsic main-axis size for flex-grow children.
+        -- Their main-axis size comes from flex distribution, not content.
+        -- Without this, content width inflates the basis and the child
+        -- overflows its parent (e.g., text at large font scales pushing
+        -- a grow container past the window edge).
+        local skipIntrinsicW = (isRow and grow > 0) or childIsScroll
+        local skipIntrinsicH = (not isRow and grow > 0) or childIsScroll
+        if not cw and not skipIntrinsicW then
           cw = estimateIntrinsicMain(child, true, innerW, innerH)
         end
-        if not ch then
+        if not ch and not skipIntrinsicH then
           ch = estimateIntrinsicMain(child, false, innerW, innerH)
         end
       end
@@ -825,7 +859,7 @@ function Layout.layoutNode(node, px, py, pw, ph)
         -- Column: cross-axis is width; always definite (falls back to pw)
         fullCross = innerW
       end
-      if fullCross and fullCross > lineCrossSize then
+      if fullCross then
         lineCrossSize = fullCross
       end
     end
@@ -879,8 +913,10 @@ function Layout.layoutNode(node, px, py, pw, ph)
       -- Determine effective alignment for this child (alignSelf or parent alignItems)
       local childAlign = effectiveAlign(align, cs)
 
-      -- Advance cursor past the child's leading main-axis margin
-      cursor = cursor + ci.mainMarginStart
+      -- NOTE: Do NOT add mainMarginStart to cursor here. layoutNode adds
+      -- margins itself (x = px + marL, y = py + marT). Adding them here
+      -- would double-count. Instead, cursor tracks the content edge and
+      -- we advance by mainMarginStart + actualSize + mainMarginEnd after layout.
 
       if isRow then
         cx = x + padL + cursor
@@ -968,18 +1004,19 @@ function Layout.layoutNode(node, px, py, pw, ph)
         actualMainSize = child.computed and child.computed.h or ci.basis
       end
 
-      -- Advance cursor past the child's content + trailing margin + gap
-      cursor = cursor + actualMainSize + ci.mainMarginEnd + gap + lineExtraGap
+      -- Advance cursor past the child's margins + content + gap
+      cursor = cursor + ci.mainMarginStart + actualMainSize + ci.mainMarginEnd + gap + lineExtraGap
 
-      -- Track content extents for auto-sizing
+      -- Track content extents for auto-sizing (use actual computed position)
+      local cc = child.computed
       if isRow then
-        local mainEnd = (cx - x) + (child.computed and child.computed.w or cw_final) + ci.marR
-        local crossEnd = crossCursor + (child.computed and child.computed.h or ch_final) + ci.marT + ci.marB
+        local mainEnd = (cc.x - x) + cc.w + ci.marR
+        local crossEnd = crossCursor + cc.h + ci.marT + ci.marB
         if mainEnd > contentMainEnd then contentMainEnd = mainEnd end
         if crossEnd > contentCrossEnd then contentCrossEnd = crossEnd end
       else
-        local mainEnd = (cy - y) + (child.computed and child.computed.h or ch_final) + ci.marB
-        local crossEnd = crossCursor + (child.computed and child.computed.w or cw_final) + ci.marL + ci.marR
+        local mainEnd = (cc.y - y) + cc.h + ci.marB
+        local crossEnd = crossCursor + cc.w + ci.marL + ci.marR
         if mainEnd > contentMainEnd then contentMainEnd = mainEnd end
         if crossEnd > contentCrossEnd then contentCrossEnd = crossEnd end
       end
@@ -1012,7 +1049,8 @@ function Layout.layoutNode(node, px, py, pw, ph)
     else
       -- Column direction: main axis is vertical.
       -- Auto height = furthest main-axis child end.
-      h = contentMainEnd + padT + padB
+      -- contentMainEnd already includes padT (from cc.y - y), so only add padB.
+      h = contentMainEnd + padB
     end
   end
 
@@ -1028,11 +1066,13 @@ function Layout.layoutNode(node, px, py, pw, ph)
     -- Compute total content dimensions (bounding box of all children)
     local contentW, contentH
     if isRow then
-      contentW = contentMainEnd + padL + padR
+      -- contentMainEnd already includes padL (from cc.x - x), so only add padR.
+      contentW = contentMainEnd + padR
       contentH = contentCrossEnd + padT + padB
     else
       contentW = contentCrossEnd + padL + padR
-      contentH = contentMainEnd + padT + padB
+      -- contentMainEnd already includes padT (from cc.y - y), so only add padB.
+      contentH = contentMainEnd + padB
     end
 
     -- Preserve existing scroll position, or initialize from style props

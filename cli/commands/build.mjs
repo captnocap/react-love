@@ -4,57 +4,66 @@ import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { runLint } from './lint.mjs';
 import { updateCommand } from './update.mjs';
+import { TARGETS, TARGET_NAMES, esbuildArgs, esbuildDistArgs } from '../targets.mjs';
+import { getEsbuildAliases } from '../lib/aliases.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_ROOT = join(__dirname, '..');
-
-// ── Helper: auto-detect esbuild --alias flags from ilovereact/ ──
-
-const ALIAS_MAP = {
-  shared: '@ilovereact/core',
-  native: '@ilovereact/native',
-  router: '@ilovereact/router',
-  storage: '@ilovereact/storage',
-  components: '@ilovereact/components',
-};
-
-function getEsbuildAliases(cwd) {
-  const flags = [];
-  for (const [dir, alias] of Object.entries(ALIAS_MAP)) {
-    const pkg = join(cwd, 'ilovereact', dir, 'src');
-    if (existsSync(pkg)) {
-      flags.push(`--alias:${alias}=./ilovereact/${dir}/src`);
-    }
-  }
-  return flags;
-}
 
 export async function buildCommand(args) {
   const cwd = process.cwd();
   const projectName = basename(cwd);
   const hasDebugFlag = args.includes('--debug');
   const skipUpdate = args.includes('--no-update');
-  const target = args.filter(a => !a.startsWith('--'))[0]; // e.g. "dist:love", "dist:terminal", or undefined
+  const rawTarget = args.filter(a => !a.startsWith('--'))[0]; // e.g. "dist:love", "terminal", or undefined
 
-  // Auto-update runtime files before building
-  if (!skipUpdate) {
+  // Auto-update runtime files before building (love target only — grid/web don't need lua/)
+  if (!skipUpdate && (!rawTarget || rawTarget === 'love' || rawTarget === 'dist:love')) {
     await updateCommand([]);
   }
 
-  if (target === 'dist:love') {
-    await buildDistLove(cwd, projectName, { debug: hasDebugFlag });
-  } else if (target === 'dist:terminal') {
-    await buildDistTerminal(cwd, projectName);
-  } else if (!target) {
-    await buildBundle(cwd, projectName);
-  } else {
-    console.error(`Unknown build target: ${target}`);
+  // Parse dist:<target> vs plain <target>
+  const isDist = rawTarget && rawTarget.startsWith('dist:');
+  const targetName = isDist ? rawTarget.slice(5) : rawTarget;
+
+  // No target → Love2D dev build (backwards compat)
+  if (!rawTarget) {
+    await buildDevTarget(cwd, projectName, 'love');
+    return;
+  }
+
+  // Validate target name
+  if (!TARGETS[targetName]) {
+    console.error(`Unknown target: ${targetName}`);
+    console.error('');
+    console.error('  Available targets:');
+    console.error(`    ${TARGET_NAMES.join(', ')}`);
     console.error('');
     console.error('  Usage:');
-    console.error('    ilovereact build                Bundle JS for dev (love . workflow)');
-    console.error('    ilovereact build dist:love       Single-file Love2D executable');
-    console.error('    ilovereact build dist:terminal   Single-file terminal executable');
+    console.error('    ilovereact build                   Bundle JS for dev (Love2D, default)');
+    console.error('    ilovereact build <target>          Dev build for any target');
+    console.error('    ilovereact build dist:<target>     Production executable');
+    console.error('');
+    console.error('  Examples:');
+    console.error('    ilovereact build terminal          Dev build → dist/main.js');
+    console.error('    ilovereact build dist:love         Self-extracting Love2D binary');
+    console.error('    ilovereact build dist:terminal     Single-file Node.js executable');
     process.exit(1);
+  }
+
+  const target = TARGETS[targetName];
+
+  if (isDist) {
+    if (target.kind === 'love') {
+      await buildDistLove(cwd, projectName, { debug: hasDebugFlag });
+    } else if (target.kind === 'web') {
+      // Web dist is just the ESM bundle (no shebang — not a Node.js executable)
+      await buildDevTarget(cwd, projectName, targetName);
+    } else {
+      await buildDistGrid(cwd, projectName, targetName);
+    }
+  } else {
+    await buildDevTarget(cwd, projectName, targetName);
   }
 }
 
@@ -72,10 +81,8 @@ function findEntry(cwd, ...candidates) {
 // ── Helper: resolve the lua runtime directory ─────────────
 
 function findLuaRuntime(cwd) {
-  // Project-local lua/ (from ilovereact init)
   const local = join(cwd, 'lua');
   if (existsSync(local)) return local;
-  // CLI bundled runtime
   const cliRuntime = join(CLI_ROOT, 'runtime', 'lua');
   if (existsSync(cliRuntime)) return cliRuntime;
   console.error('Lua runtime not found. Run `make cli-setup` or ensure lua/ exists.');
@@ -93,32 +100,83 @@ function findLibQuickJS(cwd) {
   process.exit(1);
 }
 
-// ── ilovereact build (bundle only, for dev) ───────────────
+// ── ilovereact build [target] (dev build) ─────────────────
 
-async function buildBundle(cwd, projectName) {
-  const entry = findEntry(cwd, 'src/main.tsx');
+async function buildDevTarget(cwd, projectName, targetName) {
+  const target = TARGETS[targetName];
+  const entryCandidates = target.entries.map(e => `src/${e}`);
+  const entry = findEntry(cwd, ...entryCandidates);
 
-  // Lint gate — block build on errors
+  // Lint gate
   const { errors } = await runLint(cwd, { silent: false });
   if (errors > 0) {
     console.error(`\n  Build blocked: ${errors} lint error${errors !== 1 ? 's' : ''} must be fixed first.\n`);
     process.exit(1);
   }
 
-  console.log(`\n  Bundling ${projectName}...\n`);
+  const outfile = join(cwd, target.output);
+  const outdir = dirname(outfile);
+  if (!existsSync(outdir)) mkdirSync(outdir, { recursive: true });
+
+  console.log(`\n  Bundling ${projectName} [${targetName}]...\n`);
   execSync([
     'npx', 'esbuild',
-    '--bundle',
-    '--format=iife',
-    '--global-name=ReactLove',
-    '--target=es2020',
-    '--jsx=automatic',
-    '--outfile=bundle.js',
+    ...esbuildArgs(target),
+    `--outfile=${outfile}`,
     ...getEsbuildAliases(cwd),
     entry,
   ].join(' '), { cwd, stdio: 'inherit' });
 
-  console.log(`\n  Done! bundle.js written. Run: love .\n`);
+  const hint = targetName === 'love' ? '  Run: love .' : `  Output: ${target.output}`;
+  console.log(`\n  Done! ${target.output} written.\n${hint}\n`);
+}
+
+// ── ilovereact build dist:<grid-target> ───────────────────
+//
+// Produces a single executable Node.js script with a shebang.
+// Works for terminal, cc, nvim, hs, awesome.
+
+async function buildDistGrid(cwd, projectName, targetName) {
+  const target = TARGETS[targetName];
+  const entryCandidates = target.entries.map(e => `src/${e}`);
+  const entry = findEntry(cwd, ...entryCandidates);
+
+  const distDir = join(cwd, 'dist');
+  const outFile = join(distDir, `${projectName}-${targetName}`);
+  const tmpFile = join('/tmp', `${projectName}-${targetName}.js`);
+
+  console.log(`\n  Building dist:${targetName} for ${projectName}...\n`);
+
+  // Lint gate
+  const { errors } = await runLint(cwd, { silent: false });
+  if (errors > 0) {
+    console.error(`\n  Build blocked: ${errors} lint error${errors !== 1 ? 's' : ''} must be fixed first.\n`);
+    process.exit(1);
+  }
+
+  mkdirSync(distDir, { recursive: true });
+
+  // Bundle as CJS for Node.js (no ESM module warnings)
+  console.log('  [1/2] Bundling JS...');
+  execSync([
+    'npx', 'esbuild',
+    ...esbuildDistArgs(target),
+    `--outfile=${tmpFile}`,
+    ...getEsbuildAliases(cwd),
+    entry,
+  ].join(' '), { cwd, stdio: 'pipe' });
+
+  // Prepend shebang
+  console.log('  [2/2] Writing executable...');
+  const shebang = Buffer.from('#!/usr/bin/env node\n');
+  const js = readFileSync(tmpFile);
+  writeFileSync(outFile, Buffer.concat([shebang, js]), { mode: 0o755 });
+
+  rmSync(tmpFile, { force: true });
+
+  const size = ((shebang.length + js.length) / 1024).toFixed(0);
+  console.log(`\n  Done! ${size} KB → dist/${projectName}-${targetName}`);
+  console.log(`  Run:  ./dist/${projectName}-${targetName}\n`);
 }
 
 // ── ilovereact build dist:love ────────────────────────────
@@ -128,7 +186,9 @@ async function buildBundle(cwd, projectName) {
 // (including glibc), and the .love game archive.
 
 async function buildDistLove(cwd, projectName, opts = {}) {
-  const entry = findEntry(cwd, 'src/main-love.tsx', 'src/native-main.tsx', 'src/main.tsx');
+  const target = TARGETS.love;
+  const entryCandidates = target.entries.map(e => `src/${e}`);
+  const entry = findEntry(cwd, ...entryCandidates);
   const luaDir = findLuaRuntime(cwd);
   const libquickjs = findLibQuickJS(cwd);
 
@@ -148,11 +208,7 @@ async function buildDistLove(cwd, projectName, opts = {}) {
 
   execSync([
     'npx', 'esbuild',
-    '--bundle',
-    '--format=iife',
-    '--global-name=ReactLove',
-    '--target=es2020',
-    '--jsx=automatic',
+    ...esbuildArgs(target),
     `--outfile=${bundlePath}`,
     ...getEsbuildAliases(cwd),
     entry,
@@ -193,20 +249,9 @@ async function buildDistLove(cwd, projectName, opts = {}) {
   cpSync(confLua, join(stagingDir, 'conf.lua'));
   cpSync(luaDir, join(stagingDir, 'lua'), { recursive: true });
 
-  // Disable inspector in dist builds unless --debug is passed
-  if (!opts.debug) {
-    const stagedMain = join(stagingDir, 'main.lua');
-    let mainContent = readFileSync(stagedMain, 'utf-8');
-    // Inject inspector = false into the ReactLove.init({ ... }) call
-    if (mainContent.includes('ReactLove.init({')) {
-      mainContent = mainContent.replace(
-        'ReactLove.init({',
-        'ReactLove.init({\n    inspector = false,'
-      );
-      writeFileSync(stagedMain, mainContent);
-      console.log('  Inspector disabled for dist build (pass --debug to keep it)');
-    }
-  }
+  // Inspector is now enabled by default in dist builds
+  // (Previously disabled unless --debug was passed, but this was annoying for dev)
+  // To disable: add `inspector = false` to ReactLove.init() in your main.lua
 
   // 3. Create .love archive
   console.log('  [3/6] Creating .love archive...');
@@ -297,48 +342,4 @@ async function buildDistLove(cwd, projectName, opts = {}) {
   const size = (out.length / (1024 * 1024)).toFixed(1);
   console.log(`\n  Done! ${size} MB → dist/${projectName}`);
   console.log(`  Run:  ./dist/${projectName}\n`);
-}
-
-// ── ilovereact build dist:terminal ────────────────────────
-//
-// Produces a single executable Node.js script with a shebang.
-// Just run it: ./dist/{name}-terminal
-
-async function buildDistTerminal(cwd, projectName) {
-  const entry = findEntry(cwd, 'src/main-terminal.tsx');
-
-  const distDir = join(cwd, 'dist');
-  const outFile = join(distDir, `${projectName}-terminal`);
-  const tmpFile = join('/tmp', `${projectName}-terminal.js`);
-
-  console.log(`\n  Building dist:terminal for ${projectName}...\n`);
-
-  mkdirSync(distDir, { recursive: true });
-
-  // Bundle as CJS for Node.js (no ESM module warnings)
-  console.log('  [1/2] Bundling JS...');
-  execSync([
-    'npx', 'esbuild',
-    '--bundle',
-    '--platform=node',
-    '--format=cjs',
-    '--target=es2020',
-    '--jsx=automatic',
-    '--external:ws',
-    `--outfile=${tmpFile}`,
-    ...getEsbuildAliases(cwd),
-    entry,
-  ].join(' '), { cwd, stdio: 'pipe' });
-
-  // Prepend shebang
-  console.log('  [2/2] Writing executable...');
-  const shebang = Buffer.from('#!/usr/bin/env node\n');
-  const js = readFileSync(tmpFile);
-  writeFileSync(outFile, Buffer.concat([shebang, js]), { mode: 0o755 });
-
-  rmSync(tmpFile, { force: true });
-
-  const size = ((shebang.length + js.length) / 1024).toFixed(0);
-  console.log(`\n  Done! ${size} KB → dist/${projectName}-terminal`);
-  console.log(`  Run:  ./dist/${projectName}-terminal\n`);
 }

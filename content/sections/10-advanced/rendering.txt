@@ -1,0 +1,253 @@
+=== METADATA ===
+title: Advanced Rendering (CodeBlock & Text Selection)
+description: Syntax-highlighted code blocks and interactive text selection
+category: Advanced
+platforms: love2d
+keywords: codeblock, text-selection, rendering, syntax-highlighting, clipboard
+related: lua-runtime, event-handling
+difficulty: intermediate
+
+=== OVERVIEW ===
+Two specialized rendering components extend iLoveReact with advanced text features:
+CodeBlock for syntax-highlighted source code display, and TextSelection for
+interactive text selection with clipboard support.
+
+Both are Lua-owned modules like TextEditor: they render directly via love.graphics
+rather than going through the React layout system. This gives precise control over
+line spacing, highlighting colors, and text metrics.
+
+=== COMMON PATTERNS ===
+
+CodeBlock:
+Display source code with syntax highlighting for JavaScript, Lua, TypeScript, JSX,
+and other languages. Useful for documentation, error messages, tutorials, REPLs.
+
+Text Selection:
+Allow users to select and copy text from Text nodes. Useful for documentation,
+code blocks (combined), chat messages, or any read-only text that should be
+copyable. Supports multi-line selection and Ctrl+C / Cmd+C.
+
+=== API / SYNTAX ===
+
+---- CodeBlock Module (codeblock.lua) ----
+
+CodeBlock.init(config)
+  Initialize the CodeBlock module. Call once at startup.
+
+  config: table with keys:
+          measure - the measure.lua module (for font metrics)
+
+  Example:
+    local codeblock = require("lua.codeblock")
+    codeblock.init({ measure = measure })
+
+CodeBlock.render(node, ctx, effectiveOpacity)
+  Render a code block node. Called by the painter during tree traversal.
+  (Low-level; use React <CodeBlock> component instead.)
+
+  node: the code block instance
+  ctx:  painter context
+  effectiveOpacity: transparency level (0-1)
+
+CodeBlock.measure(node)
+  Measure the dimensions of a code block. Called during layout.
+  (Low-level; used internally.)
+
+  Returns: { width, height }
+
+Node Properties:
+  style.backgroundColor    - background color (table: {r, g, b, a})
+  style.color              - text color (table or table array for syntax coloring)
+  children[1].children[1].content  - the code string (Text node)
+  children[1].props.language       - optional language hint (js, lua, tsx, py, etc.)
+
+---- Text Selection Module (textselection.lua) ----
+
+TextSelection.init(config)
+  Initialize the text selection module. Call once at startup.
+
+  config: table with keys:
+          measure - the measure.lua module
+          events  - the events.lua module
+
+  Example:
+    local textselection = require("lua.textselection")
+    textselection.init({ measure = measure, events = events })
+
+TextSelection.isSelectable(node)
+  Check if a Text node allows selection.
+
+  Returns: true unless node.style.userSelect == "none"
+
+TextSelection.start(node, line, col)
+  Start a text selection on a Text node at a specific line and column.
+  Called by event handlers when mouse is pressed on a selectable Text node.
+
+  line: 1-based line number
+  col:  0-based character column
+
+TextSelection.update(line, col)
+  Update selection endpoint during drag. Called by mousemove handlers.
+
+  line, col: same as start()
+
+TextSelection.finalize()
+  Finalize the selection (mouse released). Extracts the selected text and
+  stores it. Clears selection if zero-length. Called by mousereleased handlers.
+
+TextSelection.clear()
+  Clear the active selection. Called when clicking outside text or
+  programmatically.
+
+TextSelection.copyToClipboard()
+  Copy selected text to system clipboard. Called when Ctrl+C / Cmd+C is pressed.
+
+TextSelection.render(node, ctx, effectiveOpacity)
+  Render the selection highlight and selected text. Called by painter.
+  (Low-level; called automatically.)
+
+TextSelection.getSelection()
+  Get the current selection state (for debugging).
+
+  Returns: { text, lines, startLine, startCol, endLine, endCol, isDragging }
+           or nil if no selection active
+
+Node Properties:
+  style.userSelect - "auto" (default, selectable) or "none" (not selectable)
+
+=== EXAMPLES ===
+
+Example 1: Display Syntax-Highlighted Code
+---
+import { Box, Text } from '@ilovereact/core'
+import React from 'react'
+
+function CodeDemo() {
+  const code = `
+const greeting = "Hello, Lua!"
+function getValue() {
+  return 42
+}
+  `.trim()
+
+  return (
+    <Box style={{ padding: 16 }}>
+      <CodeBlock
+        language="js"
+        code={code}
+        style={{
+          backgroundColor: { r: 0.1, g: 0.1, b: 0.1, a: 1 },
+          color: { r: 0.8, g: 0.8, b: 0.8, a: 1 },
+        }}
+      />
+    </Box>
+  )
+}
+
+export default CodeDemo
+---
+Platforms: love2d
+
+Example 2: Selectable Text Node
+---
+import { Box, Text, Pressable } from '@ilovereact/core'
+import React from 'react'
+
+function SelectableText() {
+  return (
+    <Box style={{ padding: 16 }}>
+      <Text
+        style={{
+          fontSize: 14,
+          color: { r: 1, g: 1, b: 1, a: 1 },
+          // Allow selection (this is the default)
+          userSelect: "auto"
+        }}
+      >
+        This text can be selected and copied.
+        Try clicking and dragging to select.
+      </Text>
+
+      <Text
+        style={{
+          fontSize: 14,
+          color: { r: 0.5, g: 0.5, b: 0.5, a: 1 },
+          // Prevent selection
+          userSelect: "none"
+        }}
+      >
+        This text cannot be selected.
+      </Text>
+    </Box>
+  )
+}
+
+export default SelectableText
+---
+Platforms: love2d
+
+Example 3: Code Block with Custom Styling
+---
+import { Box, Text } from '@ilovereact/core'
+import React from 'react'
+
+const LUA_CODE = `
+-- Recursively count files in a directory
+local function countFiles(dir)
+  local count = 0
+  for entry in love.filesystem.getDirectoryItems(dir) do
+    local path = dir .. "/" .. entry
+    count = count + 1
+  end
+  return count
+end
+`
+
+function LuaHighlight() {
+  return (
+    <Box
+      style={{
+        backgroundColor: { r: 0.05, g: 0.05, b: 0.1, a: 1 },
+        padding: 12,
+        borderRadius: 4,
+      }}
+    >
+      <CodeBlock
+        language="lua"
+        code={LUA_CODE}
+        style={{
+          color: { r: 0.9, g: 0.9, b: 0.9, a: 1 },
+        }}
+      />
+    </Box>
+  )
+}
+
+export default LuaHighlight
+---
+Platforms: love2d
+
+=== CRITICAL RULES ===
+- CodeBlock is Lua-owned; dimensions are computed directly, not via React layout
+- Text nodes with userSelect="auto" are selectable by default
+- Selection is global (only one selection active at a time)
+- Ctrl+C / Cmd+C is handled internally; no custom key binding needed
+- CodeBlock requires a language hint (js, lua, tsx, py, etc.) for best highlighting
+- TextSelection works only on Text nodes, not TextInput or other components
+
+=== PERFORMANCE ===
+CodeBlock syntax highlighting is done at render time, not cached. For large code
+blocks (1000+ lines), consider splitting into multiple smaller blocks or optimizing
+line count. Text selection tracking has minimal overhead (stores selection state,
+updates on mouse move).
+
+=== PLATFORM NOTES ===
+
+Love2D:
+  Both modules work with love.graphics directly. Performance is GPU-bound for
+  rendering, CPU-bound for selection hit-testing during mouse moves.
+
+=== SEE ALSO ===
+- lua-runtime.txt - codeblock.lua and textselection.lua internals
+- 05-components/text.txt - Text node styling and properties
+- event-handling.txt - Mouse event handling and hit testing

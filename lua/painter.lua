@@ -26,6 +26,8 @@ local Measure = nil  -- Injected at init time via Painter.init()
 local Images = nil   -- Injected at init time via Painter.init()
 local ZIndex = require("lua.zindex")
 local TextEditorModule = nil  -- Lazy-loaded to avoid circular deps
+local CodeBlockModule = nil   -- Lazy-loaded to avoid circular deps
+local TextSelectionModule = nil  -- Lazy-loaded to avoid circular deps
 
 local Painter = {}
 
@@ -135,6 +137,8 @@ end
 --- @param letterSpacing number|nil Extra space between characters.
 --- @return table  Array of line strings ready to render.
 function Painter.getVisibleLines(font, text, maxWidth, numberOfLines, textOverflow, letterSpacing)
+  -- Normalize line endings (Windows \r\n → \n)
+  text = text:gsub("\r\n", "\n"):gsub("\r", "\n")
   -- When letterSpacing is set, reduce the wrap width to approximate wider characters
   local wrapConstraint = maxWidth
   if letterSpacing and letterSpacing ~= 0 then
@@ -692,6 +696,15 @@ function Painter.paintNode(node, inheritedOpacity, stencilDepth)
     end
 
   elseif not isHidden and (node.type == "Text" or node.type == "__TEXT__") then
+    -- Draw text selection highlight BEFORE text (so text renders on top)
+    if not TextSelectionModule then
+      local ok, mod = pcall(require, "lua.textselection")
+      if ok then TextSelectionModule = mod end
+    end
+    if TextSelectionModule then
+      TextSelectionModule.drawHighlight(node)
+    end
+
     -- Resolve text style properties (with inheritance for __TEXT__ children)
     local fontSize = s.fontSize or 14
     local fontFamily = resolveFontFamily(node)
@@ -925,6 +938,16 @@ function Painter.paintNode(node, inheritedOpacity, stencilDepth)
       TextEditorModule = require("lua.texteditor")
     end
     TextEditorModule.draw(node, effectiveOpacity)
+
+  elseif not isHidden and node.type == "CodeBlock" then
+    -- Lua-owned code block: delegate rendering entirely to codeblock.lua
+    if not CodeBlockModule then
+      CodeBlockModule = require("lua.codeblock")
+    end
+    local c = node.computed
+    if c and c.w > 0 and c.h > 0 then
+      CodeBlockModule.render(node, c, effectiveOpacity)
+    end
   end
 
   -- Determine paint order: sort children by zIndex (stable, ascending)

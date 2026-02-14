@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Text, Pressable } from '../../../../packages/shared/src';
+import { useDocsFontScale } from './DocsFontScale';
 
 /** Human-readable section titles */
 const SECTION_TITLES: Record<string, string> = {
@@ -26,19 +27,21 @@ interface DocsSidebarProps {
 }
 
 export function DocsSidebar({ sections, activeSectionId, activeFileKey, onSelect }: DocsSidebarProps) {
+  const { scale } = useDocsFontScale();
   const sectionIds = Object.keys(sections).sort();
+
+  const s = (base: number) => Math.round(base * scale);
 
   return (
     <Box style={{
-      width: 200,
+      width: '100%',
       backgroundColor: '#0c0c14',
-      borderWidth: 1,
+      borderRightWidth: 1,
       borderColor: '#1e293b',
-      overflow: 'scroll',
     }}>
       {/* Header */}
       <Box style={{ paddingTop: 14, paddingLeft: 12, paddingRight: 12, paddingBottom: 5 }}>
-        <Text style={{ color: '#475569', fontSize: 10, fontWeight: 'bold' }}>DOCUMENTATION</Text>
+        <Text style={{ color: '#475569', fontSize: s(10), lineHeight: s(16), fontWeight: 'bold' }}>DOCUMENTATION</Text>
       </Box>
       <Box style={{ height: 1, backgroundColor: '#1e293b' }} />
 
@@ -46,7 +49,6 @@ export function DocsSidebar({ sections, activeSectionId, activeFileKey, onSelect
       {sectionIds.map(sectionId => {
         const files = sections[sectionId];
         const fileKeys = Object.keys(files).sort();
-        // Put index first, then the rest
         const ordered = fileKeys.filter(k => k === 'index').concat(fileKeys.filter(k => k !== 'index'));
         const sectionTitle = SECTION_TITLES[sectionId] || sectionId;
 
@@ -54,7 +56,7 @@ export function DocsSidebar({ sections, activeSectionId, activeFileKey, onSelect
           <Box key={sectionId}>
             {/* Section header */}
             <Box style={{ paddingLeft: 12, paddingTop: 8, paddingBottom: 2 }}>
-              <Text style={{ color: '#334155', fontSize: 9 }}>{sectionTitle.toUpperCase()}</Text>
+              <Text style={{ color: '#334155', fontSize: s(9), lineHeight: s(14) }}>{sectionTitle.toUpperCase()}</Text>
             </Box>
 
             {/* File links */}
@@ -68,16 +70,18 @@ export function DocsSidebar({ sections, activeSectionId, activeFileKey, onSelect
                   key={fileKey}
                   onPress={() => onSelect(sectionId, fileKey)}
                   style={{
+                    width: '100%',
                     paddingLeft: 16,
                     paddingRight: 8,
-                    paddingTop: 4,
-                    paddingBottom: 4,
+                    paddingTop: 3,
+                    paddingBottom: 3,
                     backgroundColor: isActive ? '#1e293b' : 'transparent',
                   }}
                 >
                   <Text style={{
                     color: isActive ? '#e2e8f0' : '#64748b',
-                    fontSize: 11,
+                    fontSize: s(11),
+                    lineHeight: s(16),
                   }}>
                     {label}
                   </Text>

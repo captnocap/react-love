@@ -36,6 +36,11 @@ export {
   useLoveReady,
   useLoveSend,
   useLoveOverlays,
+  useFetch,
+  useWebSocket,
+  usePeerServer,
+  type WebSocketStatus,
+  type PeerMessage,
   type Overlay,
 } from './hooks';
 
@@ -57,6 +62,10 @@ export { TextInput } from './TextInput';
 
 // TextEditor (Lua-owned document editor)
 export { TextEditor } from './TextEditor';
+
+// CodeBlock (Lua-owned code renderer)
+export { CodeBlock } from './CodeBlock';
+export type { CodeBlockProps } from './CodeBlock';
 
 // FlatList
 export { FlatList } from './FlatList';

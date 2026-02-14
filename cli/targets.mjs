@@ -17,7 +17,7 @@ export const TARGETS = {
     globalName: 'ReactLove',
     external: ['react-dom'],
     entries: ['main-love.tsx', 'native-main.tsx', 'main.tsx'],
-    output: 'bundle.js',
+    output: 'love/bundle.js',
     kind: 'love',
   },
   terminal: {

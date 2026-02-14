@@ -154,16 +154,16 @@ export function parseContentFile(content: string, filePath: string): ParsedConte
     filePath,
     metadata,
     sections: {
-      overview: sectionMap['OVERVIEW'] || '',
+      overview: reflowProse(sectionMap['OVERVIEW'] || ''),
       api: sectionMap['API / SYNTAX'] || sectionMap['API'] || '',
       examples,
       platformNotes,
-      commonPatterns: sectionMap['COMMON PATTERNS'] || '',
-      performance: sectionMap['PERFORMANCE'] || '',
+      commonPatterns: reflowProse(sectionMap['COMMON PATTERNS'] || ''),
+      performance: reflowProse(sectionMap['PERFORMANCE'] || ''),
       criticalRules,
       seeAlso,
       code: sectionMap['CODE'] || '',
-      explanation: sectionMap['EXPLANATION'] || '',
+      explanation: reflowProse(sectionMap['EXPLANATION'] || ''),
     },
     raw: content,
   };
@@ -307,6 +307,22 @@ function parsePlatformNotes(text: string): Record<string, string> {
   }
 
   return notes;
+}
+
+/**
+ * Collapse single newlines into spaces (prose reflow) while preserving
+ * paragraph breaks (double newlines). This lets authors hard-wrap .txt
+ * files at any column width without affecting rendered output.
+ */
+function reflowProse(text: string): string {
+  if (!text) return text;
+  // Normalize line endings to \n first
+  const normalized = text.replace(/\r\n?/g, '\n');
+  return normalized
+    .split(/\n{2,}/)
+    .map(para => para.replace(/\n/g, ' ').replace(/  +/g, ' ').trim())
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 /**

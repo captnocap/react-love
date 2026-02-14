@@ -1,0 +1,215 @@
+=== METADATA ===
+title: CodeBlock
+description: Syntax-highlighted code display with support for multiple languages
+category: Components
+platforms: love2d, web
+keywords: code, syntax-highlighting, codeblock, code-display, pre
+related: text, texteditor
+difficulty: intermediate
+
+=== OVERVIEW ===
+CodeBlock displays source code with syntax highlighting. On Love2D, it's a Lua-owned
+primitive that renders directly via love.graphics, giving precise control over colors,
+fonts, and line spacing. On web, it renders as a <pre> element with monospace font.
+
+Use CodeBlock for documentation, tutorials, error messages, REPLs, or any read-only
+code display. For editable code, use TextEditor instead.
+
+=== API / SYNTAX ===
+
+<CodeBlock
+  code={string}
+  language?={string}
+  fontSize?={number}
+  style?={Style}
+/>
+
+code
+  Required. The source code string to display.
+  Supports multi-line code with \n line breaks.
+
+language
+  Optional. Language hint for syntax highlighting.
+  Values: "auto" (default), "js", "jsx", "ts", "tsx", "lua", "py", "json", etc.
+  "auto" attempts to detect; explicit language is more reliable.
+
+fontSize
+  Optional. Font size in pixels. Default: 10.
+
+style
+  Optional. Additional Style properties (backgroundColor, color, padding, etc.).
+  On Love2D, these override the default theme.
+  On web, these apply as CSS overrides.
+
+=== EXAMPLES ===
+
+Example 1: Basic Code Display
+---
+import { CodeBlock } from '@ilovereact/core'
+
+function CodeSnippet() {
+  const code = `
+const greeting = "Hello, world!"
+console.log(greeting)
+  `.trim()
+
+  return (
+    <CodeBlock
+      code={code}
+      language="js"
+    />
+  )
+}
+
+export default CodeSnippet
+---
+Platforms: love2d, web
+
+Example 2: Custom Styling
+---
+import { CodeBlock, Box } from '@ilovereact/core'
+
+function StyledCode() {
+  const code = `
+function fibonacci(n) {
+  if (n <= 1) return n
+  return fibonacci(n-1) + fibonacci(n-2)
+}
+  `.trim()
+
+  return (
+    <Box style={{ padding: 16 }}>
+      <CodeBlock
+        code={code}
+        language="js"
+        fontSize={12}
+        style={{
+          backgroundColor: { r: 0.05, g: 0.05, b: 0.1, a: 1 },
+          color: { r: 0.9, g: 0.9, b: 0.9, a: 1 },
+          padding: 16,
+          borderRadius: 4,
+        }}
+      />
+    </Box>
+  )
+}
+
+export default StyledCode
+---
+Platforms: love2d, web
+
+Example 3: Lua Code with Highlighting
+---
+import { CodeBlock } from '@ilovereact/core'
+
+function LuaExample() {
+  const code = `
+-- Load Lua modules
+local json = require("lua.json")
+local http = require("lua.http")
+
+-- Parse JSON
+local data = json.decode('{"hello": "world"}')
+print(data.hello)
+  `.trim()
+
+  return (
+    <CodeBlock
+      code={code}
+      language="lua"
+      fontSize={11}
+    />
+  )
+}
+
+export default LuaExample
+---
+Platforms: love2d, web
+
+Example 4: Error Stack Trace
+---
+import { CodeBlock, Box, Text } from '@ilovereact/core'
+
+function ErrorDisplay({ error }) {
+  return (
+    <Box
+      style={{
+        width: '100%',
+        padding: 16,
+        backgroundColor: { r: 0.2, g: 0.05, b: 0.05, a: 1 },
+      }}
+    >
+      <Text style={{ fontSize: 14, color: { r: 1, g: 0.2, b: 0.2, a: 1 } }}>
+        Stack Trace
+      </Text>
+      <CodeBlock
+        code={error.stack}
+        language="auto"
+        fontSize={9}
+      />
+    </Box>
+  )
+}
+
+export default ErrorDisplay
+---
+Platforms: love2d, web
+
+=== SYNTAX HIGHLIGHTING ===
+
+CodeBlock highlights code for multiple languages:
+
+JavaScript / TypeScript:
+  - Keywords: const, let, var, function, class, interface, return, if, for, etc.
+  - Strings: "..." and '...' (with escape sequences)
+  - Numbers: 123, 0xFF, 1.5, 1e10
+  - Comments: // single-line and /* multi-line */
+  - Imports: import ... from ...
+  - Functions and identifiers
+
+Lua:
+  - Keywords: local, function, if, for, while, return, end, etc.
+  - Strings: "..." and '...'
+  - Numbers: 123, 0xFF, 1.5, 1e10
+  - Comments: -- single-line and --[[ multi-line ]]
+  - Built-ins: table, string, io, os, math
+
+JSON:
+  - Objects: { "key": "value" }
+  - Arrays: [ 1, 2, 3 ]
+  - Strings: "..."
+  - Numbers, booleans, null
+
+Python / YAML / SQL:
+  - Basic keyword highlighting for common languages
+  - Strings, numbers, comments
+
+=== PLATFORM NOTES ===
+
+Love2D:
+  CodeBlock is a Lua-owned element (like TextEditor). Rendering is done directly
+  via love.graphics, not through React layout. Dimensions are computed based on
+  text metrics and padding. Multi-line code is supported. Line wrapping is not
+  automatic; long lines may extend off-screen.
+
+Web:
+  CodeBlock renders as an HTML <pre> element with monospace font. Overflow is
+  scrollable (overflow: auto). Syntax highlighting is applied via CSS classes
+  (for server-side highlighting) or client-side JavaScript (if integrated).
+
+=== CRITICAL RULES ===
+- Do not use CodeBlock for user input; use TextEditor instead
+- CodeBlock on Love2D is not scrollable within its bounds; wrap in ScrollView for long code
+- Language hints are optional but recommended for accurate highlighting
+- Code strings must be raw strings (no special escaping needed for \n)
+- fontSize should be chosen to keep code readable; default 10 is often too small for complex code
+
+=== PERFORMANCE ===
+CodeBlock rendering on Love2D is re-computed each frame. For very large code blocks
+(5000+ lines), consider splitting into multiple smaller blocks or lazy-loading
+visible sections. Web rendering is CSS-based and performant.
+
+=== SEE ALSO ===
+- text.txt - Basic text rendering
+- texteditor.txt - Editable text with line numbers
+- rendering.txt - Advanced rendering features (codeblock.lua details)

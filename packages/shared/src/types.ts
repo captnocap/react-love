@@ -90,6 +90,7 @@ export interface Style {
   };
 
   // Text
+  userSelect?: 'none' | 'text' | 'auto';
   color?: Color;
   fontSize?: number;
   fontFamily?: string;

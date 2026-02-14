@@ -3,7 +3,7 @@ title: Components Overview
 description: Reference index for all iLoveReact primitives and components
 category: Components
 platforms: love2d, web, terminal, cc, nvim, hs, awesome
-keywords: components, primitives, box, text, image, pressable, scrollview, modal, slider, reference
+keywords: components, primitives, box, text, image, pressable, scrollview, modal, slider, codeblock, reference
 related: Layout System, Hooks, Animation
 difficulty: beginner
 
@@ -17,6 +17,9 @@ All primitives and components are exported from `@ilovereact/core`. Grid targets
 import {
   // Primitives
   Box, Text, Image,
+
+  // Text display
+  CodeBlock,
 
   // Interaction
   Pressable, ScrollView, Modal, Slider,
@@ -50,6 +53,9 @@ Interaction:
   ScrollView - Scrollable container with imperative scrollTo API.
   Modal      - Fullscreen overlay with backdrop, animations, and dismiss handling.
   Slider     - Draggable range input with track and thumb.
+
+Text Display:
+  CodeBlock  - Syntax-highlighted code display (Lua-owned on Love2D, <pre> on web).
 
 Form Primitives:
   TextInput  - Single-line and multiline text entry.

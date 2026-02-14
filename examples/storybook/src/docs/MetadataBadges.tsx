@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Text } from '../../../../packages/shared/src';
+import { useDocsFontScale } from './DocsFontScale';
 
 const PLATFORM_COLORS: Record<string, string> = {
   love2d: '#e74c3c',
@@ -18,7 +19,7 @@ const DIFFICULTY_COLORS: Record<string, string> = {
   advanced: '#ef4444',
 };
 
-function Badge({ label, color }: { label: string; color: string }) {
+function Badge({ label, color, s }: { label: string; color: string; s: (n: number) => number }) {
   return (
     <Box style={{
       backgroundColor: color + '22',
@@ -30,7 +31,7 @@ function Badge({ label, color }: { label: string; color: string }) {
       paddingTop: 2,
       paddingBottom: 2,
     }}>
-      <Text style={{ color, fontSize: 8 }}>{label}</Text>
+      <Text style={{ color, fontSize: s(8), lineHeight: s(12) }}>{label}</Text>
     </Box>
   );
 }
@@ -42,12 +43,15 @@ interface MetadataBadgesProps {
 }
 
 export function MetadataBadges({ category, difficulty, platforms }: MetadataBadgesProps) {
+  const { scale } = useDocsFontScale();
+  const s = (base: number) => Math.round(base * scale);
+
   return (
     <Box style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-      <Badge label={category} color="#94a3b8" />
-      <Badge label={difficulty} color={DIFFICULTY_COLORS[difficulty] || '#94a3b8'} />
+      <Badge label={category} color="#94a3b8" s={s} />
+      <Badge label={difficulty} color={DIFFICULTY_COLORS[difficulty] || '#94a3b8'} s={s} />
       {platforms.map(p => (
-        <Badge key={p} label={p} color={PLATFORM_COLORS[p] || '#64748b'} />
+        <Badge key={p} label={p} color={PLATFORM_COLORS[p] || '#64748b'} s={s} />
       ))}
     </Box>
   );

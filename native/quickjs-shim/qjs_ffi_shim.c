@@ -115,6 +115,7 @@ static HostCallback host_events_cb   = NULL;
 static HostCallback host_log_cb      = NULL;
 static HostCallback host_measure_cb  = NULL;
 static HostCallback host_report_error_cb = NULL;
+static HostCallback host_random_cb   = NULL;
 
 static JSValue trampoline_flush(JSContext *ctx, JSValue this_val,
                                 int argc, JSValue *argv)
@@ -156,6 +157,14 @@ static JSValue trampoline_report_error(JSContext *ctx, JSValue this_val,
     return ret;
 }
 
+static JSValue trampoline_random(JSContext *ctx, JSValue this_val,
+                                 int argc, JSValue *argv)
+{
+    JSValue ret = JS_UNDEFINED;
+    if (host_random_cb) host_random_cb(ctx, argc, argv, &ret);
+    return ret;
+}
+
 /* Lua calls these to set the callback handlers */
 
 __attribute__((visibility("default")))
@@ -172,6 +181,9 @@ void qjs_set_host_measure(HostCallback cb) { host_measure_cb = cb; }
 
 __attribute__((visibility("default")))
 void qjs_set_host_report_error(HostCallback cb) { host_report_error_cb = cb; }
+
+__attribute__((visibility("default")))
+void qjs_set_host_random(HostCallback cb) { host_random_cb = cb; }
 
 /* Register all host functions as JS globals.
  * Call after setting the callbacks. */
@@ -195,6 +207,9 @@ void qjs_register_host_functions(JSContext *ctx)
 
     JS_SetPropertyStr(ctx, global, "__hostReportError",
         JS_NewCFunction_inline(ctx, trampoline_report_error, "__hostReportError", 1));
+
+    JS_SetPropertyStr(ctx, global, "__hostRandomBytes",
+        JS_NewCFunction_inline(ctx, trampoline_random, "__hostRandomBytes", 1));
 
     JS_FreeValue(ctx, global);
 }

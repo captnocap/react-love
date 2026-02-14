@@ -36,11 +36,16 @@ export {
   useLoveReady,
   useLoveSend,
   useLoveOverlays,
+  useFetch,
+  useWebSocket,
+  usePeerServer,
+  type WebSocketStatus,
+  type PeerMessage,
   type Overlay,
 } from './hooks';
 
 // Primitives
-export { Box, Text, Image, styleToCSS, colorToCSS } from './primitives';
+export { Box, Row, Col, Text, Image, styleToCSS, colorToCSS } from './primitives';
 
 // ScrollView
 export { ScrollView } from './ScrollView';
@@ -57,6 +62,10 @@ export { TextInput } from './TextInput';
 
 // TextEditor (Lua-owned document editor)
 export { TextEditor } from './TextEditor';
+
+// CodeBlock (Lua-owned code renderer)
+export { CodeBlock } from './CodeBlock';
+export type { CodeBlockProps } from './CodeBlock';
 
 // FlatList
 export { FlatList } from './FlatList';
@@ -115,3 +124,10 @@ export {
   type SpringConfig,
   type InterpolationConfig,
 } from './animation';
+
+// Colors
+export { colors, type CatppuccinColor } from './colors';
+
+// Debug tools
+export { useDebug, getDebugData, registerDebug } from './useDebug';
+export { DebugOverlay, DebugBox, useDebugOverlay } from './DebugOverlay';

@@ -80,6 +80,9 @@ function Tree.applyCommands(commands)
         children = {},
         parent = nil,
         computed = nil,
+        -- Debug info from React component (for inspector)
+        debugName = cmd.debugName,
+        debugSource = cmd.debugSource,
       }
       -- Pre-load image and establish ref count
       if Images and cmd.type == "Image" and props.src then
@@ -88,10 +91,11 @@ function Tree.applyCommands(commands)
       treeDirty = true
 
     elseif op == "CREATE_TEXT" then
+      local textVal = cmd.text
       nodes[cmd.id] = {
         id = cmd.id,
         type = "__TEXT__",
-        text = cmd.text,
+        text = textVal,
         style = {},
         children = {},
         parent = nil,

@@ -54,6 +54,8 @@ import { ToolbarStory } from './ToolbarStory';
 import { AppShellDemoStory } from './AppShellDemo';
 import { AutoSizeBasic } from './AutoSizeBasic';
 import { OverflowStressStory } from './OverflowStress';
+import { FetchStory } from './FetchStory';
+import { WebSocketStory } from './WebSocketStory';
 
 export const stories: StoryDef[] = [
   // Primitives
@@ -123,6 +125,10 @@ export const stories: StoryDef[] = [
 
   // Stress Test
   { id: 'overflow-stress', title: 'Overflow Stress', category: 'Stress Test', component: OverflowStressStory },
+
+  // Networking
+  { id: 'fetch', title: 'Fetch', category: 'Networking', component: FetchStory },
+  { id: 'websocket', title: 'WebSocket', category: 'Networking', component: WebSocketStory },
 
   // Dev Tools
   { id: 'error-test', title: 'Error Test', category: 'Dev Tools', component: ErrorTestStory },

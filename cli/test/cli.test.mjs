@@ -389,8 +389,9 @@ export function BadRow() {
 }
 `);
     const { exitCode, stdout } = cli(['lint'], { cwd: projectDir });
-    assert.equal(exitCode, 1, 'Should fail with lint error');
-    assert.ok(stdout.includes('no-row-justify-without-width') || stdout.includes('justifyContent'));
+    assert.equal(exitCode, 0, 'Warning rule should not cause exit 1');
+    assert.ok(stdout.includes('no-row-justify-without-width') || stdout.includes('justifyContent'),
+      'Should warn about row justify without width');
     rmSync(testFile);
   });
 
@@ -441,6 +442,116 @@ export function MixedText({ count }: { count: number }) {
     const { exitCode, stdout } = cli(['lint'], { cwd: projectDir });
     assert.equal(exitCode, 1, 'Should fail with lint error');
     assert.ok(stdout.includes('no-mixed-text-children') || stdout.includes('template literal'));
+    rmSync(testFile);
+  });
+
+  it('catches Image without src', async () => {
+    const { writeFileSync } = await import('node:fs');
+    const testFile = join(projectDir, 'src', 'NoSrc.tsx');
+    writeFileSync(testFile, `
+import React from 'react';
+import { Image } from '@ilovereact/core';
+export function NoSrc() {
+  return <Image style={{ width: 100, height: 100 }} />;
+}
+`);
+    const { exitCode, stdout } = cli(['lint'], { cwd: projectDir });
+    assert.equal(exitCode, 1, 'Should fail with lint error');
+    assert.ok(stdout.includes('no-image-without-src') || stdout.includes('src'));
+    rmSync(testFile);
+  });
+
+  it('catches Pressable without onPress', async () => {
+    const { writeFileSync } = await import('node:fs');
+    const testFile = join(projectDir, 'src', 'NoOnPress.tsx');
+    writeFileSync(testFile, `
+import React from 'react';
+import { Pressable, Text } from '@ilovereact/core';
+export function NoOnPress() {
+  return (
+    <Pressable style={{ width: 100, height: 50 }}>
+      <Text style={{ fontSize: 14 }}>Click me?</Text>
+    </Pressable>
+  );
+}
+`);
+    const { exitCode, stdout } = cli(['lint'], { cwd: projectDir });
+    // This is a warning, not an error, so exitCode is 0
+    assert.equal(exitCode, 0, 'Should pass but show warning');
+    assert.ok(stdout.includes('no-pressable-without-onpress') || stdout.includes('onPress'));
+    rmSync(testFile);
+  });
+
+  it('passes Image with src', async () => {
+    const { writeFileSync } = await import('node:fs');
+    const testFile = join(projectDir, 'src', 'GoodImage.tsx');
+    writeFileSync(testFile, `
+import React from 'react';
+import { Image } from '@ilovereact/core';
+export function GoodImage() {
+  return <Image src="logo.png" style={{ width: 100, height: 100 }} />;
+}
+`);
+    const { exitCode } = cli(['lint'], { cwd: projectDir });
+    assert.equal(exitCode, 0, 'Should pass with src prop');
+    rmSync(testFile);
+  });
+
+  it('passes Pressable with onPress', async () => {
+    const { writeFileSync } = await import('node:fs');
+    const testFile = join(projectDir, 'src', 'GoodPressable.tsx');
+    writeFileSync(testFile, `
+import React from 'react';
+import { Pressable, Text } from '@ilovereact/core';
+export function GoodPressable() {
+  return (
+    <Pressable style={{ width: 100, height: 50 }} onPress={() => console.log('clicked')}>
+      <Text style={{ fontSize: 14 }}>Click me</Text>
+    </Pressable>
+  );
+}
+`);
+    const { exitCode } = cli(['lint'], { cwd: projectDir });
+    assert.equal(exitCode, 0, 'Should pass with onPress handler');
+    rmSync(testFile);
+  });
+
+  it('accepts size shorthand on Text (no fontSize needed)', async () => {
+    const { writeFileSync } = await import('node:fs');
+    const testFile = join(projectDir, 'src', 'SizeShorthand.tsx');
+    writeFileSync(testFile, `
+import React from 'react';
+import { Text } from '@ilovereact/core';
+export function SizeShorthand() {
+  return <Text size={16}>Hello</Text>;
+}
+`);
+    const { exitCode, stdout } = cli(['lint'], { cwd: projectDir });
+    assert.equal(exitCode, 0, 'size shorthand should satisfy fontSize requirement');
+    assert.ok(!stdout.includes('no-text-without-fontsize'), 'Should not warn about fontSize');
+    rmSync(testFile);
+  });
+
+  it('accepts shorthand props on Box (direction, justify, w, fill)', async () => {
+    const { writeFileSync } = await import('node:fs');
+    const testFile = join(projectDir, 'src', 'BoxShorthands.tsx');
+    writeFileSync(testFile, `
+import React from 'react';
+import { Box, Text } from '@ilovereact/core';
+export function BoxShorthands() {
+  return (
+    <Box fill>
+      <Box direction="row" justify="center" w="100%">
+        <Text size={14}>a</Text>
+        <Text size={14}>b</Text>
+      </Box>
+    </Box>
+  );
+}
+`);
+    const { exitCode, stdout } = cli(['lint'], { cwd: projectDir });
+    assert.equal(exitCode, 0, 'Shorthand props should pass all lint rules');
+    assert.ok(!stdout.includes('error'), 'No errors with shorthand props');
     rmSync(testFile);
   });
 });
