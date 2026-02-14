@@ -30,10 +30,12 @@ local inspectorEnabled = true                 -- can be disabled via config.insp
 
 local animate  = nil   -- animate.lua module (Lua-side transitions/animations)
 local images   = nil   -- images.lua module (image cache)
+local videos   = nil   -- videos.lua module (video cache + FFmpeg transcoding)
 local focus    = require("lua.focus")         -- focus manager for Lua-owned inputs
 local texteditor = nil                        -- texteditor.lua (loaded on demand)
 local codeblock  = nil                        -- codeblock.lua (loaded on demand)
 local textselection = nil                    -- textselection.lua (text highlight + copy)
+local contextmenu = nil                      -- contextmenu.lua (right-click context menu)
 local http     = nil                          -- http.lua (async HTTP + local file fetch)
 local network  = nil                          -- network.lua (WebSocket connections)
 local tor      = nil                          -- tor.lua (Tor subprocess, loaded if config.tor)
@@ -271,10 +273,11 @@ function ReactLove.init(config)
 
     measure = require("lua.measure")
     images  = require("lua.images")
+    videos  = require("lua.videos")
     animate = require("lua.animate")
 
     tree    = require("lua.tree")
-    tree.init({ images = images, animate = animate })
+    tree.init({ images = images, videos = videos, animate = animate })
 
     animate.init({ tree = tree })
 
@@ -282,7 +285,7 @@ function ReactLove.init(config)
     layout.init({ measure = measure })
 
     painter = require("lua.painter")
-    painter.init({ measure = measure, images = images })
+    painter.init({ measure = measure, images = images, videos = videos })
 
     events  = require("lua.events")
     events.setTreeModule(tree)
@@ -295,6 +298,9 @@ function ReactLove.init(config)
 
     textselection = require("lua.textselection")
     textselection.init({ measure = measure, events = events })
+
+    contextmenu = require("lua.contextmenu")
+    contextmenu.init({ measure = measure, events = events, textselection = textselection })
 
     print("[react-love] Initialized in CANVAS mode (Module.FS bridge + native rendering)")
 
@@ -310,10 +316,11 @@ function ReactLove.init(config)
 
     measure = require("lua.measure")
     images  = require("lua.images")
+    videos  = require("lua.videos")
     animate = require("lua.animate")
 
     tree    = require("lua.tree")
-    tree.init({ images = images, animate = animate })
+    tree.init({ images = images, videos = videos, animate = animate })
 
     animate.init({ tree = tree })
 
@@ -321,7 +328,7 @@ function ReactLove.init(config)
     layout.init({ measure = measure })
 
     painter = require("lua.painter")
-    painter.init({ measure = measure, images = images })
+    painter.init({ measure = measure, images = images, videos = videos })
 
     events  = require("lua.events")
     events.setTreeModule(tree)
@@ -334,6 +341,9 @@ function ReactLove.init(config)
 
     textselection = require("lua.textselection")
     textselection.init({ measure = measure, events = events })
+
+    contextmenu = require("lua.contextmenu")
+    contextmenu.init({ measure = measure, events = events, textselection = textselection })
 
     -- Initialize async HTTP (love.thread + LuaSocket)
     http = require("lua.http")
@@ -682,10 +692,42 @@ function ReactLove.update(dt)
     end
   end
 
-  -- 8. Tick Lua-side transitions and animations (before layout)
+  -- 8. Render mpv video frames into Canvases (before layout/paint)
+  if videos then videos.renderAll() end
+
+  -- 9. Poll video status and playback events, emit to JS
+  if videos then
+    local videoEvents = videos.poll()
+    for _, evt in ipairs(videoEvents) do
+      -- Resolve src → tracked nodeIds so JS can dispatch to the right components
+      local nodes = videos.getNodesForSrc(evt.src)
+      for _, nodeId in ipairs(nodes) do
+        pushEvent({
+          type = "video:" .. evt.status,
+          payload = { src = evt.src, message = evt.message, targetId = nodeId },
+        })
+      end
+    end
+
+    -- Poll active video playback state for onTimeUpdate/onEnded/onPlay/onPause
+    local playbackEvents = videos.pollPlayback()
+    for _, evt in ipairs(playbackEvents) do
+      pushEvent({
+        type = evt.type,
+        payload = {
+          type = evt.type,
+          targetId = evt.nodeId,
+          currentTime = evt.currentTime,
+          duration = evt.duration,
+        },
+      })
+    end
+  end
+
+  -- 10. Tick Lua-side transitions and animations (before layout)
   if animate then animate.tick(dt) end
 
-  -- 8. Relayout if tree changed
+  -- 11. Relayout if tree changed
   if tree.isDirty() then
     local root = tree.getTree()
     if root then
@@ -747,6 +789,11 @@ function ReactLove.draw()
 
   -- Inspector overlay (after paint, before errors)
   if inspectorEnabled then inspector.draw(root) end
+
+  -- Context menu overlay (after inspector, before errors)
+  if contextmenu and contextmenu.isOpen() then
+    contextmenu.draw()
+  end
 
   -- Error overlay renders on top of everything, using raw Love2D calls
   errors.draw()
@@ -910,6 +957,18 @@ function ReactLove.mousepressed(x, y, button)
   local root = tree.getTree()
   if not root then return end
 
+  -- Context menu: consume clicks when open (close on outside click, select on item)
+  if contextmenu and contextmenu.isOpen() then
+    contextmenu.handleMousePressed(x, y, button)
+    return
+  end
+
+  -- Right-click: open context menu instead of normal click handling
+  if button == 2 and contextmenu then
+    contextmenu.open(x, y, root, pushEvent)
+    return
+  end
+
   -- Scrollbar click/drag gets priority over normal hit testing
   if scrollbarMousePressed(root, x, y, button) then return end
 
@@ -1044,6 +1103,12 @@ function ReactLove.mousemoved(x, y)
   if scrollbarMouseMoved(x, y) then return end
   if not isRendering() then return end
 
+  -- Context menu hover tracking
+  if contextmenu and contextmenu.isOpen() then
+    contextmenu.handleMouseMoved(x, y)
+    return
+  end
+
   -- Text selection: check pending → promote on threshold, or update active drag
   if textselection then
     local sel = textselection.get()
@@ -1134,6 +1199,12 @@ end
 function ReactLove.keypressed(key, scancode, isrepeat)
   if inspectorEnabled and inspector.keypressed(key) then return end
   if not isRendering() then return end
+
+  -- Context menu keyboard handling
+  if contextmenu and contextmenu.isOpen() then
+    contextmenu.handleKeyPressed(key)
+    return
+  end
 
   -- Ctrl+C / Cmd+C: copy text selection to clipboard
   if textselection and key == "c" and (love.keyboard.isDown("lctrl", "rctrl", "lgui", "rgui")) then
@@ -1341,13 +1412,15 @@ function ReactLove.reload()
   -- Note: Tor is NOT restarted on reload — it stays running across hot reloads
   torHostnameEmitted = false  -- Re-emit tor:ready to new JS context
   if images then images.clearCache() end
+  if videos then videos.clearCache() end
   if animate then animate.clear() end
-  tree.init({ images = images, animate = animate })
+  tree.init({ images = images, videos = videos, animate = animate })
   if animate then animate.init({ tree = tree }) end
   events.clearHover()
   events.clearPressedNode()
   interactionBase = {}
   focus.clear()
+  if contextmenu then contextmenu.close() end
   pcall(function() events.endDrag(0, 0) end)
   measure.clearCache()
 
@@ -1408,6 +1481,7 @@ end
 --- Call from love.quit().
 --- Cleans up the bridge and releases resources.
 function ReactLove.quit()
+  if videos then videos.shutdown() end
   if tor then tor.stop() end
   if network then network.destroy() end
   if http then http.destroy() end

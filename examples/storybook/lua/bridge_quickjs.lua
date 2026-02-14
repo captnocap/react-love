@@ -115,6 +115,7 @@ ffi.cdef[[
   void qjs_set_host_log(HostCallback cb);
   void qjs_set_host_measure(HostCallback cb);
   void qjs_set_host_report_error(HostCallback cb);
+  void qjs_set_host_random(HostCallback cb);
   void qjs_register_host_functions(JSContext *ctx);
 ]]
 
@@ -497,6 +498,37 @@ function Bridge.new(libpath)
       };
     }
 
+    // ---- crypto.getRandomValues() polyfill ----
+    // Uses __hostRandomBytes to read /dev/urandom via Lua (synchronous call)
+    if (typeof globalThis.crypto === 'undefined') {
+      globalThis.crypto = {};
+    }
+    if (typeof globalThis.crypto.getRandomValues !== 'function') {
+      globalThis.crypto.getRandomValues = function(arr) {
+        var bytes = __hostRandomBytes(arr.length);
+        for (var i = 0; i < arr.length; i++) arr[i] = bytes[i];
+        return arr;
+      };
+    }
+
+    // ---- TextEncoder/TextDecoder polyfill ----
+    if (typeof globalThis.TextEncoder === 'undefined') {
+      globalThis.TextEncoder = function() {};
+      globalThis.TextEncoder.prototype.encode = function(str) {
+        var arr = new Uint8Array(str.length);
+        for (var i = 0; i < str.length; i++) arr[i] = str.charCodeAt(i) & 0xFF;
+        return arr;
+      };
+    }
+    if (typeof globalThis.TextDecoder === 'undefined') {
+      globalThis.TextDecoder = function() {};
+      globalThis.TextDecoder.prototype.decode = function(arr) {
+        var s = '';
+        for (var i = 0; i < arr.length; i++) s += String.fromCharCode(arr[i]);
+        return s;
+      };
+    }
+
     // Override queueMicrotask to use our timer queue instead of QuickJS's
     // internal Promise job queue. React's scheduler uses queueMicrotask
     // which creates an infinite microtask chain that blocks JS_Eval return.
@@ -866,12 +898,42 @@ function Bridge:_setupHostFunctions()
   end)
   self._callbacks[#self._callbacks + 1] = reportErrorCb
 
+  -- __hostRandomBytes: JS requests CSPRNG bytes from /dev/urandom
+  -- Returns a JS array of byte values (0-255). Used by crypto.getRandomValues() polyfill.
+  local randomCb = ffi.cast("HostCallback", function(ctx, argc, argv, ret)
+    local n = 32  -- default
+    if argc >= 1 then
+      if qjs.JS_ToInt32(ctx, _int32_buf, argv[0]) == 0 then
+        n = tonumber(_int32_buf[0])
+      end
+    end
+    if n < 1 then n = 1 end
+    if n > 65536 then n = 65536 end
+
+    local f = io.open("/dev/urandom", "rb")
+    if not f then
+      print("[react-love] __hostRandomBytes: cannot open /dev/urandom")
+      ret[0] = qjs.JS_NewArray(ctx)
+      return
+    end
+    local bytes = f:read(n)
+    f:close()
+
+    local arr = qjs.JS_NewArray(ctx)
+    for i = 1, #bytes do
+      qjs.JS_SetPropertyUint32(ctx, arr, i - 1, qjs.JS_NewInt32(ctx, string.byte(bytes, i)))
+    end
+    ret[0] = arr
+  end)
+  self._callbacks[#self._callbacks + 1] = randomCb
+
   -- Register callbacks in C shim, then register JS globals
   qjs.qjs_set_host_flush(flushCb)
   qjs.qjs_set_host_events(eventsCb)
   qjs.qjs_set_host_log(logCb)
   qjs.qjs_set_host_measure(measureCb)
   qjs.qjs_set_host_report_error(reportErrorCb)
+  qjs.qjs_set_host_random(randomCb)
   qjs.qjs_register_host_functions(self.ctx)
 end
 

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Box, Text } from '../../../../packages/shared/src';
+import React, { useState, useRef } from 'react';
+import { Box, Text, TextEditor } from '../../../../packages/shared/src';
 import { Video } from '../../../../packages/shared/src/Video';
 import { VideoPlayer } from '../../../../packages/shared/src/VideoPlayer';
 
@@ -50,7 +50,7 @@ export function VideoStory() {
       <Box style={{ gap: 4 }}>
         <Text style={{ color: '#e2e8f0', fontSize: 16, fontWeight: 'bold' }}>Video</Text>
         <Text style={{ color: '#64748b', fontSize: 11 }}>
-          Any format in, Theora out. FFmpeg handles transcoding behind the scenes.
+          Any format in, Theora out. Local files and M3U8/HLS streams via FFmpeg.
         </Text>
       </Box>
 
@@ -138,6 +138,9 @@ export function VideoStory() {
         </Box>
       </Box>
 
+      {/* M3U8 / HLS Stream loader */}
+      <StreamLoader />
+
       {/* Usage block */}
       <Box style={{
         backgroundColor: [1, 1, 1, 0.03],
@@ -147,10 +150,86 @@ export function VideoStory() {
         borderColor: [1, 1, 1, 0.04],
       }}>
         <Text style={{ color: '#64748b', fontSize: 9 }}>
-          Usage: Place video files in your project root. .ogv loads instantly, other formats
-          (mp4, mkv, webm) are transcoded via FFmpeg at runtime or pre-converted during builds.
+          Supports local files (.ogv instant, others via FFmpeg) and HTTP URLs including M3U8/HLS
+          streams. VOD streams are transcoded to Theora on the fly.
         </Text>
       </Box>
     </Box>
+  );
+}
+
+function StreamLoader() {
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
+  const [streamStatus, setStreamStatus] = useState<string>('Paste a URL');
+  const lastSubmit = useRef('');
+
+  const handleSubmit = (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    lastSubmit.current = trimmed;
+    setLoadedUrl(trimmed);
+    setStreamStatus('Loading...');
+  };
+
+  return (
+    <Card label="M3U8 / HLS STREAM">
+      <Box style={{ gap: 10, width: '100%' }}>
+        {/* URL input */}
+        <Box style={{ gap: 4 }}>
+          <TextEditor
+            onSubmit={handleSubmit}
+            placeholder="Paste an M3U8 URL, then Ctrl+Enter to load"
+            lineNumbers={false}
+            style={{
+              backgroundColor: '#1a1f2e',
+              borderRadius: 6,
+              width: '100%',
+              height: 32,
+            }}
+            textStyle={{ fontSize: 10, color: '#e2e8f0' }}
+          />
+          <Text style={{ color: '#334155', fontSize: 8 }}>
+            Ctrl+V to paste, Ctrl+Enter to load
+          </Text>
+        </Box>
+
+        {/* Video player or placeholder */}
+        {loadedUrl ? (
+          <Box style={{ gap: 6, alignItems: 'center' }}>
+            <VideoPlayer
+              src={loadedUrl}
+              w={560}
+              h={240}
+              radius={6}
+              onReady={() => setStreamStatus('Ready')}
+              onPlay={() => setStreamStatus('Playing')}
+              onPause={() => setStreamStatus('Paused')}
+              onError={() => setStreamStatus('Error')}
+            />
+            <StatusPill label="Stream" value={streamStatus} />
+          </Box>
+        ) : (
+          <Box style={{
+            width: '100%',
+            height: 120,
+            backgroundColor: '#0a0e17',
+            borderRadius: 6,
+            borderWidth: 1,
+            borderColor: [1, 1, 1, 0.06],
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: 6,
+          }}>
+            <Text style={{ color: '#334155', fontSize: 24 }}>&#9655;</Text>
+            <Text style={{ color: '#475569', fontSize: 10 }}>
+              Paste an M3U8 URL above and hit Load
+            </Text>
+            <Text style={{ color: '#334155', fontSize: 8 }}>
+              FFmpeg downloads + transcodes the stream to Theora
+            </Text>
+          </Box>
+        )}
+      </Box>
+    </Card>
   );
 }

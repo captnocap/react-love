@@ -102,7 +102,7 @@ function P2PDemo() {
   return (
     <Box style={{ flexDirection: 'row', gap: 16, width: '100%' }}>
       {/* Server panel */}
-      <Box style={{ flex: 1, gap: 8 }}>
+      <Box style={{ flexGrow: 1, gap: 8 }}>
         <Text style={{ fontSize: 14, color: '#f1f5f9' }}>Server (Host)</Text>
 
         <Box style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
@@ -161,7 +161,7 @@ function P2PDemo() {
       </Box>
 
       {/* Client panel */}
-      <Box style={{ flex: 1, gap: 8 }}>
+      <Box style={{ flexGrow: 1, gap: 8 }}>
         <Text style={{ fontSize: 14, color: '#f1f5f9' }}>Client (Joiner)</Text>
 
         <Box style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>

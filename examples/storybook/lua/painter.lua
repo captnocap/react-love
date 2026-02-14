@@ -12,6 +12,7 @@
     - lineHeight override (manual line-by-line rendering when set)
     - letterSpacing (character-by-character rendering -- known to be expensive)
     - Image: actual image rendering with scaling, opacity, and borderRadius
+    - Video: Theora video playback with objectFit, play/pause/loop/volume control
     - Opacity propagation: nested opacity values multiply down the tree
     - overflow:hidden with borderRadius > 0: stencil-based clipping with nesting support
     - overflow:hidden with borderRadius = 0: scissor-based rectangular clipping
@@ -24,6 +25,7 @@
 
 local Measure = nil  -- Injected at init time via Painter.init()
 local Images = nil   -- Injected at init time via Painter.init()
+local Videos = nil   -- Injected at init time via Painter.init()
 local ZIndex = require("lua.zindex")
 local TextEditorModule = nil  -- Lazy-loaded to avoid circular deps
 local CodeBlockModule = nil   -- Lazy-loaded to avoid circular deps
@@ -41,6 +43,7 @@ function Painter.init(config)
   config = config or {}
   Measure = config.measure
   Images = config.images
+  Videos = config.videos
   getFont = Measure.getFont
 end
 
@@ -929,6 +932,104 @@ function Painter.paintNode(node, inheritedOpacity, stencilDepth)
         love.graphics.rectangle("fill", c.x, c.y, c.w, c.h)
         love.graphics.setColor(1, 0, 0, 0.8 * effectiveOpacity)
         love.graphics.rectangle("line", c.x, c.y, c.w, c.h)
+      end
+    end
+
+  elseif not isHidden and node.type == "Video" and Videos then
+    local src = node.props and node.props.src
+    if src then
+      local status = Videos.getStatus(src)
+
+      if status == "ready" then
+        local canvas = Videos.get(src)
+        if canvas then
+          -- Control playback via mpv property API
+          Videos.setPaused(src, node.props.paused)
+          Videos.setMuted(src, node.props.muted)
+          Videos.setVolume(src, node.props.volume or 1)
+          Videos.setLoop(src, node.props.loop)
+
+          -- Calculate scaling using same objectFit logic as Image
+          local objectFit = s.objectFit or "fill"
+          local vidW, vidH = Videos.getDimensions(src)
+          if not vidW then vidW, vidH = canvas:getWidth(), canvas:getHeight() end
+          local scaleX, scaleY, drawX, drawY, drawW, drawH
+
+          if objectFit == "contain" then
+            local scale = math.min(c.w / vidW, c.h / vidH)
+            scaleX = scale
+            scaleY = scale
+            drawW = vidW * scale
+            drawH = vidH * scale
+            drawX = c.x + (c.w - drawW) / 2
+            drawY = c.y + (c.h - drawH) / 2
+          elseif objectFit == "cover" then
+            local scale = math.max(c.w / vidW, c.h / vidH)
+            scaleX = scale
+            scaleY = scale
+            drawW = vidW * scale
+            drawH = vidH * scale
+            drawX = c.x + (c.w - drawW) / 2
+            drawY = c.y + (c.h - drawH) / 2
+          elseif objectFit == "none" then
+            scaleX = 1
+            scaleY = 1
+            drawW = vidW
+            drawH = vidH
+            drawX = c.x + (c.w - vidW) / 2
+            drawY = c.y + (c.h - vidH) / 2
+          else
+            -- "fill" (default)
+            scaleX = c.w / vidW
+            scaleY = c.h / vidH
+            drawX = c.x
+            drawY = c.y
+            drawW = c.w
+            drawH = c.h
+          end
+
+          -- Apply borderRadius clipping if needed
+          local videoStencil = borderRadius > 0
+          if videoStencil then
+            local stencilValue = stencilDepth + 1
+            love.graphics.stencil(function()
+              love.graphics.rectangle("fill", c.x, c.y, c.w, c.h, borderRadius, borderRadius)
+            end, "replace", stencilValue)
+            love.graphics.setStencilTest("greater", stencilDepth)
+          end
+
+          -- Draw the video frame (Canvas is drawable just like Video)
+          love.graphics.setColor(1, 1, 1, effectiveOpacity)
+          love.graphics.draw(canvas, drawX, drawY, 0, scaleX, scaleY)
+
+          -- Restore stencil
+          if videoStencil then
+            if stencilDepth > 0 then
+              love.graphics.setStencilTest("greater", stencilDepth - 1)
+            else
+              love.graphics.setStencilTest()
+            end
+          end
+        end
+
+      else
+        -- Loading / error / no video: neutral dark surface with film icon
+        love.graphics.setColor(0.10, 0.11, 0.14, effectiveOpacity)
+        love.graphics.rectangle("fill", c.x, c.y, c.w, c.h, borderRadius, borderRadius)
+        love.graphics.setColor(0.20, 0.22, 0.28, 0.5 * effectiveOpacity)
+        love.graphics.rectangle("line", c.x, c.y, c.w, c.h, borderRadius, borderRadius)
+
+        -- Play triangle icon in center
+        local iconSize = math.min(c.w, c.h) * 0.15
+        if iconSize > 6 then
+          local cx = c.x + c.w / 2
+          local cy = c.y + c.h / 2
+          love.graphics.setColor(0.30, 0.33, 0.40, 0.5 * effectiveOpacity)
+          love.graphics.polygon("fill",
+            cx - iconSize * 0.4, cy - iconSize * 0.5,
+            cx - iconSize * 0.4, cy + iconSize * 0.5,
+            cx + iconSize * 0.5, cy)
+        end
       end
     end
 

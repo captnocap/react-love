@@ -9,6 +9,12 @@ If text wraps, it's because you gave it nowhere to go.
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Who Maintains This
+
+**You do.** When you encounter bugs, they are from other versions of yourself in another parallel instance. If a bug from another Claude is preventing you from progressing forward, help yourself, do not dismiss as 'not my code'; it is your code. It is all your code.
+
+**Commiting Work:** If you choose to commit work on your own, then do not commit the work of other Claudes. If I prompt you to commit work, I expect you to commit all the work left unaccounted for, its from you in a parallel universe who forgot to anyways.
+
 ## Model Selection
 
 **Always use Opus 4.6 (`claude-opus-4-6`) for debugging.** Sonnet is fine for scaffolding, writing new components, and routine tasks. But when tracking down layout bugs, inspector issues, coordinate mismatches, or anything where the real problem is structural and not obvious — use Opus. It finds the actual bug instead of proposing workarounds that mask it.
