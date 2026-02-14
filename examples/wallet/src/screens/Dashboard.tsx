@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Box, Text, Pressable } from '@ilovereact/core';
 import { useWallet } from '../wallet/context';
 import { formatEther } from '../network/rpc';
@@ -27,6 +27,14 @@ export function Dashboard() {
   const { state, actions } = useWallet();
   const account = state.accounts[0];
   const chain = chains[state.network];
+
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (text: string) => {
+    copyToClipboard(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   if (!account) return null;
 
@@ -104,19 +112,24 @@ export function Dashboard() {
       </Box>
 
       {/* Address */}
-      <Pressable onPress={() => copyToClipboard(account.address)}>
-        <Box style={{
+      <Pressable
+        onPress={() => handleCopy(account.address)}
+        style={{
+          width: '100%',
           alignItems: 'center',
-          gap: 2,
-          paddingTop: 4, paddingBottom: 4,
-        }}>
-          <Text style={{ fontSize: 13, color: C.dim }}>
-            {shortenAddress(account.address)}
-          </Text>
+          paddingTop: 6,
+          paddingBottom: 6,
+          borderRadius: 8,
+        }}
+      >
+        <Text style={{ fontSize: 13, color: copied ? C.green : C.dim }}>
+          {copied ? 'Copied!' : shortenAddress(account.address)}
+        </Text>
+        {!copied && (
           <Text style={{ fontSize: 10, color: C.overlay }}>
             tap to copy
           </Text>
-        </Box>
+        )}
       </Pressable>
 
       {/* Balance card */}
@@ -183,7 +196,7 @@ export function Dashboard() {
 
       {/* Transaction result */}
       {state.txHash && (
-        <Pressable onPress={() => copyToClipboard(state.txHash!)}>
+        <Pressable onPress={() => handleCopy(state.txHash!)} style={{ width: '100%' }}>
           <Box style={{
             backgroundColor: '#152a1d',
             borderRadius: 10,
