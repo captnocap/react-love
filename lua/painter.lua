@@ -1031,25 +1031,45 @@ function Painter.paintNode(node, inheritedOpacity, stencilDepth)
         end
 
       elseif status == "transcoding" then
-        -- Loading placeholder: dark rounded box with pulsing indicator
-        love.graphics.setColor(0.12, 0.12, 0.15, effectiveOpacity)
+        -- Transcoding placeholder: dark surface with animated progress bar
+        love.graphics.setColor(0.10, 0.11, 0.14, effectiveOpacity)
         love.graphics.rectangle("fill", c.x, c.y, c.w, c.h, borderRadius, borderRadius)
 
-        -- Pulsing dot in center
+        -- Subtle border
+        love.graphics.setColor(0.20, 0.22, 0.28, 0.5 * effectiveOpacity)
+        love.graphics.rectangle("line", c.x, c.y, c.w, c.h, borderRadius, borderRadius)
+
+        -- Animated progress bar at bottom
         local t = love.timer.getTime()
-        local pulse = 0.4 + 0.3 * math.sin(t * 3)
-        love.graphics.setColor(0.5, 0.5, 0.6, pulse * effectiveOpacity)
-        local dotR = math.min(c.w, c.h) * 0.04
-        if dotR > 1 then
-          love.graphics.circle("fill", c.x + c.w / 2, c.y + c.h / 2, dotR)
-        end
+        local barH = 3
+        local barY = c.y + c.h - barH - 8
+        local barW = c.w * 0.5
+        local barX = c.x + (c.w - barW) / 2
+        love.graphics.setColor(0.22, 0.24, 0.30, 0.6 * effectiveOpacity)
+        love.graphics.rectangle("fill", barX, barY, barW, barH, 2, 2)
+        local shimmer = (t * 0.4) % 1.0
+        local fillW = barW * shimmer
+        love.graphics.setColor(0.40, 0.45, 0.60, 0.7 * effectiveOpacity)
+        love.graphics.rectangle("fill", barX, barY, fillW, barH, 2, 2)
 
       else
-        -- Error or unknown: dark box with red border
-        love.graphics.setColor(0.15, 0.08, 0.08, effectiveOpacity)
+        -- No video / error: neutral dark surface with film icon
+        love.graphics.setColor(0.10, 0.11, 0.14, effectiveOpacity)
         love.graphics.rectangle("fill", c.x, c.y, c.w, c.h, borderRadius, borderRadius)
-        love.graphics.setColor(0.8, 0.2, 0.2, 0.6 * effectiveOpacity)
+        love.graphics.setColor(0.20, 0.22, 0.28, 0.5 * effectiveOpacity)
         love.graphics.rectangle("line", c.x, c.y, c.w, c.h, borderRadius, borderRadius)
+
+        -- Play triangle icon in center
+        local iconSize = math.min(c.w, c.h) * 0.15
+        if iconSize > 6 then
+          local cx = c.x + c.w / 2
+          local cy = c.y + c.h / 2
+          love.graphics.setColor(0.30, 0.33, 0.40, 0.5 * effectiveOpacity)
+          love.graphics.polygon("fill",
+            cx - iconSize * 0.4, cy - iconSize * 0.5,
+            cx - iconSize * 0.4, cy + iconSize * 0.5,
+            cx + iconSize * 0.5, cy)
+        end
       end
     end
 
