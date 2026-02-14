@@ -421,3 +421,38 @@ export interface TextEditorProps {
   textStyle?: Style;
   key?: string | number;
 }
+
+export interface ContextMenuItem {
+  /** Display label for the menu item. */
+  label: string;
+  /** Action identifier dispatched on selection. */
+  action: string;
+  /** Whether the item is grayed out / unclickable. */
+  disabled?: boolean;
+  /** Renders a divider line instead of an item. */
+  separator?: boolean;
+}
+
+export interface ContextMenuEvent {
+  /** The action string of the selected item. */
+  action: string;
+  /** ID of the node that was right-clicked. */
+  targetId?: number;
+  /** Whether text was selected when the menu opened. */
+  hasSelection?: boolean;
+  /** The selected text content (if any). */
+  selectedText?: string;
+}
+
+export interface ContextMenuProps {
+  /** Custom menu items added by the app. */
+  items?: ContextMenuItem[];
+  /** Called when any menu item (built-in or custom) is selected. */
+  onSelect?: (event: ContextMenuEvent) => void;
+  /** Called when the context menu opens. */
+  onOpen?: () => void;
+  /** Called when the context menu closes. */
+  onClose?: () => void;
+  children?: React.ReactNode;
+  key?: string | number;
+}

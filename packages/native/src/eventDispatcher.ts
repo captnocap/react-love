@@ -120,6 +120,50 @@ export function initEventDispatching(bridge: Subscribable): void {
   bridge.subscribe('texteditor:submit', (event: LoveEvent) => {
     dispatchToTargetOnly(event, 'onTextEditorSubmit');
   });
+
+  // ── Video events (target-only) ────────────────────────
+
+  bridge.subscribe('video:ready', (event: LoveEvent) => {
+    dispatchToTargetOnly(event, 'onReady');
+  });
+
+  bridge.subscribe('video:error', (event: LoveEvent) => {
+    dispatchToTargetOnly(event, 'onError');
+  });
+
+  bridge.subscribe('onReady', (event: LoveEvent) => {
+    dispatchToTargetOnly(event, 'onReady');
+  });
+
+  bridge.subscribe('onTimeUpdate', (event: LoveEvent) => {
+    dispatchToTargetOnly(event, 'onTimeUpdate');
+  });
+
+  bridge.subscribe('onPlay', (event: LoveEvent) => {
+    dispatchToTargetOnly(event, 'onPlay');
+  });
+
+  bridge.subscribe('onPause', (event: LoveEvent) => {
+    dispatchToTargetOnly(event, 'onPause');
+  });
+
+  bridge.subscribe('onEnded', (event: LoveEvent) => {
+    dispatchToTargetOnly(event, 'onEnded');
+  });
+
+  // ── ContextMenu events (Lua-owned, target-only) ──────
+
+  bridge.subscribe('contextmenu:select', (event: LoveEvent) => {
+    dispatchToTargetOnly(event, 'onContextMenuSelect');
+  });
+
+  bridge.subscribe('contextmenu:open', (event: LoveEvent) => {
+    dispatchToTargetOnly(event, 'onContextMenuOpen');
+  });
+
+  bridge.subscribe('contextmenu:close', (event: LoveEvent) => {
+    dispatchToTargetOnly(event, 'onContextMenuClose');
+  });
 }
 
 /**

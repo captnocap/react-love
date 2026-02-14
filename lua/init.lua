@@ -35,6 +35,7 @@ local focus    = require("lua.focus")         -- focus manager for Lua-owned inp
 local texteditor = nil                        -- texteditor.lua (loaded on demand)
 local codeblock  = nil                        -- codeblock.lua (loaded on demand)
 local textselection = nil                    -- textselection.lua (text highlight + copy)
+local contextmenu = nil                      -- contextmenu.lua (right-click context menu)
 local http     = nil                          -- http.lua (async HTTP + local file fetch)
 local network  = nil                          -- network.lua (WebSocket connections)
 local tor      = nil                          -- tor.lua (Tor subprocess, loaded if config.tor)
@@ -298,6 +299,9 @@ function ReactLove.init(config)
     textselection = require("lua.textselection")
     textselection.init({ measure = measure, events = events })
 
+    contextmenu = require("lua.contextmenu")
+    contextmenu.init({ measure = measure, events = events, textselection = textselection })
+
     print("[react-love] Initialized in CANVAS mode (Module.FS bridge + native rendering)")
 
   else
@@ -337,6 +341,9 @@ function ReactLove.init(config)
 
     textselection = require("lua.textselection")
     textselection.init({ measure = measure, events = events })
+
+    contextmenu = require("lua.contextmenu")
+    contextmenu.init({ measure = measure, events = events, textselection = textselection })
 
     -- Initialize async HTTP (love.thread + LuaSocket)
     http = require("lua.http")
@@ -689,10 +696,14 @@ function ReactLove.update(dt)
   if videos then
     local videoEvents = videos.poll()
     for _, evt in ipairs(videoEvents) do
-      pushEvent({
-        type = "video:" .. evt.status,
-        payload = { src = evt.src, message = evt.message },
-      })
+      -- Resolve src → tracked nodeIds so JS can dispatch to the right components
+      local nodes = videos.getNodesForSrc(evt.src)
+      for _, nodeId in ipairs(nodes) do
+        pushEvent({
+          type = "video:" .. evt.status,
+          payload = { src = evt.src, message = evt.message, targetId = nodeId },
+        })
+      end
     end
 
     -- Poll active video playback state for onTimeUpdate/onEnded/onPlay/onPause
@@ -775,6 +786,11 @@ function ReactLove.draw()
 
   -- Inspector overlay (after paint, before errors)
   if inspectorEnabled then inspector.draw(root) end
+
+  -- Context menu overlay (after inspector, before errors)
+  if contextmenu and contextmenu.isOpen() then
+    contextmenu.draw()
+  end
 
   -- Error overlay renders on top of everything, using raw Love2D calls
   errors.draw()
@@ -938,6 +954,18 @@ function ReactLove.mousepressed(x, y, button)
   local root = tree.getTree()
   if not root then return end
 
+  -- Context menu: consume clicks when open (close on outside click, select on item)
+  if contextmenu and contextmenu.isOpen() then
+    contextmenu.handleMousePressed(x, y, button)
+    return
+  end
+
+  -- Right-click: open context menu instead of normal click handling
+  if button == 2 and contextmenu then
+    contextmenu.open(x, y, root, pushEvent)
+    return
+  end
+
   -- Scrollbar click/drag gets priority over normal hit testing
   if scrollbarMousePressed(root, x, y, button) then return end
 
@@ -1072,6 +1100,12 @@ function ReactLove.mousemoved(x, y)
   if scrollbarMouseMoved(x, y) then return end
   if not isRendering() then return end
 
+  -- Context menu hover tracking
+  if contextmenu and contextmenu.isOpen() then
+    contextmenu.handleMouseMoved(x, y)
+    return
+  end
+
   -- Text selection: check pending → promote on threshold, or update active drag
   if textselection then
     local sel = textselection.get()
@@ -1162,6 +1196,12 @@ end
 function ReactLove.keypressed(key, scancode, isrepeat)
   if inspectorEnabled and inspector.keypressed(key) then return end
   if not isRendering() then return end
+
+  -- Context menu keyboard handling
+  if contextmenu and contextmenu.isOpen() then
+    contextmenu.handleKeyPressed(key)
+    return
+  end
 
   -- Ctrl+C / Cmd+C: copy text selection to clipboard
   if textselection and key == "c" and (love.keyboard.isDown("lctrl", "rctrl", "lgui", "rgui")) then
@@ -1377,6 +1417,7 @@ function ReactLove.reload()
   events.clearPressedNode()
   interactionBase = {}
   focus.clear()
+  if contextmenu then contextmenu.close() end
   pcall(function() events.endDrag(0, 0) end)
   measure.clearCache()
 

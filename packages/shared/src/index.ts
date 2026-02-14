@@ -74,6 +74,10 @@ export { TextEditor } from './TextEditor';
 export { CodeBlock } from './CodeBlock';
 export type { CodeBlockProps } from './CodeBlock';
 
+// ContextMenu (Lua-owned right-click menu)
+export { ContextMenu } from './ContextMenu';
+export type { ContextMenuProps, ContextMenuItem, ContextMenuEvent } from './types';
+
 // FlatList
 export { FlatList } from './FlatList';
 

@@ -90,6 +90,7 @@ function Events.hitTest(node, mx, my)
   if node.type == "TextEditor" then return node end
   if node.type == "CodeBlock" then return node end
   if node.type == "Video" then return node end
+  if node.type == "ContextMenu" then return node end
   return nil
 end
 
@@ -181,6 +182,18 @@ function Events.findScrollContainer(node, mx, my)
     current = current.parent
   end
 
+  return nil
+end
+
+--- Walk up from a node to find the nearest ContextMenu ancestor.
+--- Returns the ContextMenu node or nil.
+function Events.findContextMenuAncestor(node)
+  if not node then return nil end
+  local current = node
+  while current do
+    if current.type == "ContextMenu" then return current end
+    current = current.parent
+  end
   return nil
 end
 
