@@ -56,6 +56,7 @@ import { AutoSizeBasic } from './AutoSizeBasic';
 import { OverflowStressStory } from './OverflowStress';
 import { FetchStory } from './FetchStory';
 import { WebSocketStory } from './WebSocketStory';
+import { VideoStory } from './VideoStory';
 
 export const stories: StoryDef[] = [
   // Primitives
@@ -64,6 +65,7 @@ export const stories: StoryDef[] = [
   { id: 'text-styles', title: 'Text', category: 'Primitives', component: TextStylesStory },
   { id: 'text-truncation', title: 'Text Truncation', category: 'Primitives', component: TextTruncationStory },
   { id: 'image-basic', title: 'Image', category: 'Primitives', component: ImageBasicStory },
+  { id: 'video', title: 'Video', category: 'Primitives', component: VideoStory },
 
   // Layout
   { id: 'auto-size-basic', title: 'Auto-Sizing', category: 'Layout', component: AutoSizeBasic },
