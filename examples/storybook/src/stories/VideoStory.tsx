@@ -13,6 +13,7 @@ function Card({ children, label }: { children: React.ReactNode; label: string })
         padding: 16,
         borderWidth: 1,
         borderColor: [1, 1, 1, 0.06],
+        alignItems: 'center',
       }}>
         {children}
       </Box>
@@ -59,7 +60,7 @@ export function VideoStory() {
         <Box style={{ gap: 16, flexGrow: 1, width: 280 }}>
           {/* Bare primitive */}
           <Card label="VIDEO PRIMITIVE">
-            <Box style={{ gap: 10 }}>
+            <Box style={{ gap: 10, alignItems: 'center' }}>
               <Video
                 src="sample.ogv"
                 w={248}
@@ -77,7 +78,7 @@ export function VideoStory() {
                   setTime(`${m}:${s < 10 ? '0' : ''}${s}`);
                 }}
               />
-              <Box style={{ flexDirection: 'row', gap: 6 }}>
+              <Box style={{ flexDirection: 'row', gap: 6, width: 248, justifyContent: 'center' }}>
                 <StatusPill label="Status" value={status} />
                 <StatusPill label="Time" value={time} />
               </Box>
@@ -86,17 +87,17 @@ export function VideoStory() {
 
           {/* Compact variants */}
           <Card label="SIZES">
-            <Box style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-end' }}>
-              <Box style={{ gap: 4, alignItems: 'center' }}>
-                <Video src="sample.ogv" w={100} h={56} style={{ borderRadius: 4 }} />
-                <Text style={{ color: '#475569', fontSize: 8 }}>100x56</Text>
+            <Box style={{ flexDirection: 'row', gap: 10, alignItems: 'end', width: 248 }}>
+              <Box style={{ gap: 4, alignItems: 'center', width: 90 }}>
+                <Video src="sample.ogv" w={90} h={50} style={{ borderRadius: 4 }} />
+                <Text style={{ color: '#475569', fontSize: 8 }}>90x50</Text>
               </Box>
-              <Box style={{ gap: 4, alignItems: 'center' }}>
-                <Video src="sample.ogv" w={80} h={80} style={{ borderRadius: 40 }} />
+              <Box style={{ gap: 4, alignItems: 'center', width: 60 }}>
+                <Video src="sample.ogv" w={60} h={60} style={{ borderRadius: 30 }} />
                 <Text style={{ color: '#475569', fontSize: 8 }}>Round</Text>
               </Box>
-              <Box style={{ gap: 4, alignItems: 'center' }}>
-                <Video src="sample.ogv" w={60} h={90} style={{ borderRadius: 4 }} />
+              <Box style={{ gap: 4, alignItems: 'center', width: 50 }}>
+                <Video src="sample.ogv" w={50} h={70} style={{ borderRadius: 4 }} />
                 <Text style={{ color: '#475569', fontSize: 8 }}>Portrait</Text>
               </Box>
             </Box>
@@ -107,7 +108,7 @@ export function VideoStory() {
         <Box style={{ gap: 16, flexGrow: 1, width: 280 }}>
           {/* VideoPlayer */}
           <Card label="VIDEO PLAYER">
-            <Box style={{ gap: 6 }}>
+            <Box style={{ gap: 6, alignItems: 'center' }}>
               <VideoPlayer
                 src="sample.ogv"
                 w={248}
@@ -122,7 +123,7 @@ export function VideoStory() {
 
           {/* Transcoding demo */}
           <Card label="FFMPEG TRANSCODING">
-            <Box style={{ gap: 6 }}>
+            <Box style={{ gap: 6, alignItems: 'center' }}>
               <Video
                 src="sample.mp4"
                 w={248}
